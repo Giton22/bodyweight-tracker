@@ -1,13 +1,13 @@
 services:
-  pocketbase:
-    build: .
-    container_name: bodyweight-pocketbase
+  bodyweight-tracker:
+    image: ghcr.io/giton22/bodyweight-tracker:latest
+    container_name: bodyweight-tracker
     restart: unless-stopped
     ports:
       - "8090:8090"
     environment:
-      # Set these in your .env file to auto-create the admin account on first boot.
-      # The superuser upsert command is idempotent, so it's safe to leave them set.
+      # Auto-create the PocketBase admin account on first boot.
+      # The superuser upsert command is idempotent — safe to leave set after first run.
       PB_ADMIN_EMAIL: ${PB_ADMIN_EMAIL:-}
       PB_ADMIN_PASSWORD: ${PB_ADMIN_PASSWORD:-}
     volumes:
@@ -18,6 +18,21 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    labels:
+      # Watchtower — auto-update this container when a new image is published
+      - "com.centurylinklabs.watchtower.enable=true"
 
 volumes:
   pb_data:
+
+# ── Optional: uncomment to enable automatic updates via Watchtower ────────────
+# watchtower:
+#   image: containrrr/watchtower
+#   container_name: watchtower
+#   restart: unless-stopped
+#   volumes:
+#     - /var/run/docker.sock:/var/run/docker.sock
+#   environment:
+#     WATCHTOWER_CLEANUP: "true"
+#     WATCHTOWER_POLL_INTERVAL: 3600   # check every hour
+#     WATCHTOWER_LABEL_ENABLE: "true"  # only update containers with the label above
