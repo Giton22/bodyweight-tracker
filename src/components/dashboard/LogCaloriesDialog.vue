@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useWeightStore } from '@/stores/weight'
-import { useUnits } from '@/composables/useUnits'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,7 +16,6 @@ import {
 } from '@/components/ui/dialog'
 
 const store = useWeightStore()
-const { isKg } = useUnits()
 
 function localDateISO(): string {
   const d = new Date()
@@ -26,63 +24,66 @@ function localDateISO(): string {
 
 const open = ref(false)
 const date = ref(localDateISO())
-const weight = ref<number | undefined>()
+const calories = ref<number | undefined>()
 const note = ref('')
 
-function submit() {
-  if (!weight.value || !date.value) return
+async function submit() {
+  if (!calories.value || !date.value) return
 
-  const weightKg = isKg.value ? weight.value : weight.value / 2.20462
-
-  store.addEntry({
+  await store.saveDailyCalories({
     date: date.value,
-    weightKg: Math.round(weightKg * 10) / 10,
-    note: note.value || undefined,
+    calories: Math.round(calories.value),
+    goalOverrideKcal: null,
   })
 
   // Reset
-  weight.value = undefined
+  calories.value = undefined
   note.value = ''
   date.value = localDateISO()
   open.value = false
 }
+
+function onOpenChange(value: boolean) {
+  if (value) date.value = localDateISO()
+  open.value = value
+}
 </script>
 
 <template>
-  <Dialog v-model:open="open">
+  <Dialog :open="open" @update:open="onOpenChange">
     <DialogTrigger as-child>
       <Button>
         <Icon icon="lucide:plus" class="mr-2 h-4 w-4" />
-        Log Weight
+        Log Calories
       </Button>
     </DialogTrigger>
     <DialogContent class="sm:max-w-[425px]">
       <DialogHeader>
-        <DialogTitle>Log Weight</DialogTitle>
-        <DialogDescription>Add a new weight entry.</DialogDescription>
+        <DialogTitle>Log Calories</DialogTitle>
+        <DialogDescription>Add calories consumed for a day.</DialogDescription>
       </DialogHeader>
       <form class="grid gap-4 py-4" @submit.prevent="submit">
         <div class="grid gap-2">
-          <Label for="date">Date</Label>
-          <Input id="date" v-model="date" type="date" />
+          <Label for="cal-date">Date</Label>
+          <Input id="cal-date" v-model="date" type="date" />
         </div>
         <div class="grid gap-2">
-          <Label for="weight">Weight ({{ isKg ? 'kg' : 'lbs' }})</Label>
+          <Label for="cal-calories">Consumed kcal</Label>
           <Input
-            id="weight"
-            v-model.number="weight"
+            id="cal-calories"
+            v-model.number="calories"
             type="number"
-            step="0.1"
             min="0"
-            placeholder="Enter weight"
+            step="1"
+            placeholder="e.g. 2000"
           />
         </div>
         <div class="grid gap-2">
-          <Label for="note">Note (optional)</Label>
-          <Input id="note" v-model="note" placeholder="e.g. After workout" />
+          <Label for="cal-note">Note (optional)</Label>
+          <Input id="cal-note" v-model="note" placeholder="e.g. Cheat day" />
         </div>
         <DialogFooter>
-          <Button type="submit" :disabled="!weight || !date">Save</Button>
+          <Button type="submit" :disabled="!calories || !date">Save</Button>
         </DialogFooter>
       </form>
     </DialogContent>

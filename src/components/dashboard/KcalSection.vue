@@ -7,6 +7,7 @@ import KcalChart from '@/components/dashboard/KcalChart.vue'
 import DailyCaloriesTable from '@/components/dashboard/DailyCaloriesTable.vue'
 import TimeRangeSelect from '@/components/dashboard/TimeRangeSelect.vue'
 import SetKcalGoalDialog from '@/components/dashboard/SetKcalGoalDialog.vue'
+import LogCaloriesDialog from '@/components/dashboard/LogCaloriesDialog.vue'
 
 const store = useWeightStore()
 
@@ -45,8 +46,9 @@ const todayKcalRemaining = computed(() => {
       <CardHeader class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Calorie History</CardTitle>
         <div class="flex flex-wrap items-center gap-2">
-          <TimeRangeSelect />
+          <TimeRangeSelect target="calories" />
           <SetKcalGoalDialog />
+          <LogCaloriesDialog />
         </div>
       </CardHeader>
       <CardContent>

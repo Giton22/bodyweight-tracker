@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { VisXYContainer, VisStackedBar, VisAxis, VisLine, VisCrosshair, VisTooltip } from '@unovis/vue'
+import { VisXYContainer, VisStackedBar, VisAxis, VisCrosshair, VisTooltip } from '@unovis/vue'
 import { useWeightStore } from '@/stores/weight'
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart'
 import type { ChartConfig } from '@/components/ui/chart'
@@ -8,10 +8,8 @@ import type { ChartConfig } from '@/components/ui/chart'
 interface ChartDatum {
   date: number
   consumed: number
-  goal: number
   exceeded: boolean
   hasConsumed: boolean
-  hasGoal: boolean
 }
 
 const store = useWeightStore()
@@ -21,15 +19,13 @@ const chartConfig: ChartConfig = {
     label: 'Consumed',
     color: 'var(--chart-2)',
   },
-  goal: {
-    label: 'Goal',
-    color: 'var(--chart-4)',
-  },
 }
 
 const data = computed(() => store.calorieChartData as ChartDatum[])
 
-const x = (d: ChartDatum) => d.date
+// Use index as X so each data point gets exactly one tick — no repeated date labels
+const x = (_d: ChartDatum, i: number) => i
+
 const yConsumed = (d: ChartDatum) => d.hasConsumed ? d.consumed : 0
 
 const barColor = (d: ChartDatum) => {
@@ -38,24 +34,23 @@ const barColor = (d: ChartDatum) => {
   return 'var(--chart-2)'
 }
 
-// Goal line accessor
-const yGoal = (d: ChartDatum) => d.hasGoal ? d.goal : undefined
-
 function formatDate(ms: number | Date): string {
   return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+// Map index back to the date label of that data point
+const xTickFormat = (i: number) => {
+  const d = data.value[Math.round(i)]
+  return d ? formatDate(d.date) : ''
+}
+
+const numTicks = computed(() => Math.min(data.value.length, 12))
+
 const domainY = computed((): [number, number] => {
   if (data.value.length === 0) return [0, 3000]
-  const values = data.value.flatMap(d => {
-    const v: number[] = []
-    if (d.hasConsumed) v.push(d.consumed)
-    if (d.hasGoal) v.push(d.goal)
-    return v
-  })
+  const values = data.value.filter(d => d.hasConsumed).map(d => d.consumed)
   if (values.length === 0) return [0, 3000]
-  const max = Math.max(...values)
-  return [0, max * 1.15]
+  return [0, Math.max(...values) * 1.15]
 })
 </script>
 
@@ -69,17 +64,10 @@ const domainY = computed((): [number, number] => {
         :bar-padding="0.3"
         :rounded-corners="4"
       />
-      <VisLine
-        :x="x"
-        :y="yGoal"
-        color="var(--chart-4)"
-        :line-width="2"
-        :curve-type="'monotoneX'"
-      />
       <VisAxis
         type="x"
-        :tick-format="formatDate"
-        :num-ticks="6"
+        :tick-format="xTickFormat"
+        :num-ticks="numTicks"
         label=""
       />
       <VisAxis
@@ -89,7 +77,7 @@ const domainY = computed((): [number, number] => {
         label=""
       />
       <VisCrosshair
-        :template="(d: ChartDatum) => `${formatDate(d.date)}: ${d.hasConsumed ? d.consumed + ' kcal' : 'No data'}${d.hasGoal ? ' / Goal: ' + d.goal + ' kcal' : ''}`"
+        :template="(d: ChartDatum) => `${formatDate(d.date)}: ${d.hasConsumed ? d.consumed + ' kcal' : 'No data'}`"
         color="var(--chart-2)"
       />
       <VisTooltip>
@@ -97,7 +85,7 @@ const domainY = computed((): [number, number] => {
           <ChartTooltipContent
             v-if="tooltipData"
             :config="chartConfig"
-            :payload="{ consumed: tooltipData.consumed, goal: tooltipData.goal }"
+            :payload="{ consumed: tooltipData.consumed }"
             :x="tooltipData.date"
             :label-formatter="formatDate"
           />

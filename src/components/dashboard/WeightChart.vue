@@ -6,6 +6,11 @@ import { useUnits } from '@/composables/useUnits'
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart'
 import type { ChartConfig } from '@/components/ui/chart'
 
+interface WeightDatum {
+  date: number
+  weight: number
+}
+
 const store = useWeightStore()
 const { convert, isKg } = useUnits()
 
@@ -16,19 +21,28 @@ const chartConfig: ChartConfig = {
   },
 }
 
-const data = computed(() =>
+const data = computed((): WeightDatum[] =>
   store.averagedEntries.map(e => ({
     date: new Date(e.date).getTime(),
     weight: convert(e.weightKg),
   })),
 )
 
-const x = (d: { date: number }) => d.date
-const y = (d: { date: number, weight: number }) => d.weight
+// Use index as X so each data point gets exactly one tick — no repeated date labels
+const x = (_d: WeightDatum, i: number) => i
+const y = (d: WeightDatum) => d.weight
 
 function formatDate(ms: number | Date): string {
   return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
+
+// Map index back to the date label of that data point
+const xTickFormat = (i: number) => {
+  const d = data.value[Math.round(i)]
+  return d ? formatDate(d.date) : ''
+}
+
+const numTicks = computed(() => Math.min(data.value.length, 12))
 
 const unitLabel = computed(() => isKg.value ? 'kg' : 'lbs')
 
@@ -61,8 +75,8 @@ const domainY = computed((): [number, number] => {
       />
       <VisAxis
         type="x"
-        :tick-format="formatDate"
-        :num-ticks="6"
+        :tick-format="xTickFormat"
+        :num-ticks="numTicks"
         label=""
       />
       <VisAxis
@@ -72,7 +86,7 @@ const domainY = computed((): [number, number] => {
         label=""
       />
       <VisCrosshair
-        :template="(d: { date: number, weight: number }) => `${formatDate(d.date)}: ${d.weight} ${unitLabel}`"
+        :template="(d: WeightDatum) => `${formatDate(d.date)}: ${d.weight} ${unitLabel}`"
         color="var(--chart-1)"
       />
       <VisTooltip>

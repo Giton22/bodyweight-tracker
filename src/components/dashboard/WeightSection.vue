@@ -72,7 +72,7 @@ const goalRemaining = computed(() => {
         <CardTitle>Weight History</CardTitle>
         <div class="flex flex-wrap items-center gap-2">
           <AverageModeToggle />
-          <TimeRangeSelect />
+          <TimeRangeSelect target="weight" />
           <LogWeightDialog />
         </div>
       </CardHeader>

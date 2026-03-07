@@ -34,8 +34,12 @@ export type WeightUnit = 'kg' | 'lbs'
 
 export type TimeRange = 7 | 30 | 60 | 90
 
+export type Sex = 'male' | 'female'
+
 export interface UserSettings {
   unit: WeightUnit
   goalWeightKg: number
   heightCm: number
+  dateOfBirth?: string // YYYY-MM-DD
+  sex?: Sex
 }
