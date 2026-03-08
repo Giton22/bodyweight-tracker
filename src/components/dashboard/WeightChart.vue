@@ -86,7 +86,7 @@ const domainY = computed((): [number, number] => {
         label=""
       />
       <VisCrosshair
-        :template="(d: WeightDatum) => `${formatDate(d.date)}: ${d.weight} ${unitLabel}`"
+        :template="(d: WeightDatum) => d ? `${formatDate(d.date)}: ${d.weight} ${unitLabel}` : ''"
         color="var(--chart-1)"
       />
       <VisTooltip>

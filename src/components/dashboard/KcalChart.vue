@@ -77,7 +77,7 @@ const domainY = computed((): [number, number] => {
         label=""
       />
       <VisCrosshair
-        :template="(d: ChartDatum) => `${formatDate(d.date)}: ${d.hasConsumed ? d.consumed + ' kcal' : 'No data'}`"
+        :template="(d: ChartDatum) => d ? `${formatDate(d.date)}: ${d.hasConsumed ? d.consumed + ' kcal' : 'No data'}` : ''"
         color="var(--chart-2)"
       />
       <VisTooltip>

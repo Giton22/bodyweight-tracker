@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useWeightStore } from '@/stores/weight'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,7 @@ const open = ref(false)
 const date = ref(localDateISO())
 const calories = ref<number | undefined>()
 const note = ref('')
+const caloriesInputRef = ref<InstanceType<typeof Input> | null>(null)
 
 async function submit() {
   if (!calories.value || !date.value) return
@@ -34,6 +35,7 @@ async function submit() {
     date: date.value,
     calories: Math.round(calories.value),
     goalOverrideKcal: null,
+    note: note.value || undefined,
   })
 
   // Reset
@@ -44,7 +46,13 @@ async function submit() {
 }
 
 function onOpenChange(value: boolean) {
-  if (value) date.value = localDateISO()
+  if (value) {
+    date.value = localDateISO()
+    nextTick(() => {
+      const el = caloriesInputRef.value?.$el?.querySelector('input') ?? caloriesInputRef.value?.$el
+      el?.focus()
+    })
+  }
   open.value = value
 }
 </script>
@@ -71,6 +79,7 @@ function onOpenChange(value: boolean) {
           <Label for="cal-calories">Consumed kcal</Label>
           <Input
             id="cal-calories"
+            ref="caloriesInputRef"
             v-model.number="calories"
             type="number"
             min="0"

@@ -481,18 +481,43 @@ export const useWeightStore = defineStore('weight', () => {
     const userId = pb.authStore.record?.id
     if (!userId) return
 
-    try {
-      const rec = await pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).create({
-        user: userId,
-        date: entry.date,
+    const existing = entries.value.find(e => e.date === entry.date)
+
+    if (existing) {
+      await pb.collection(COLLECTIONS.WEIGHT_ENTRIES).update(existing.id, {
         weight_kg: entry.weightKg,
         note: entry.note ?? '',
       })
-      if (!entries.value.some(e => e.id === rec.id)) {
-        entries.value.push(toWeightEntry(rec))
-      }
+      const idx = entries.value.findIndex(e => e.id === existing.id)
+      if (idx !== -1) entries.value[idx] = { ...existing, weightKg: entry.weightKg, note: entry.note }
     }
-    catch { /* silently fail */ }
+    else {
+      try {
+        const rec = await pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).create({
+          user: userId,
+          date: entry.date,
+          weight_kg: entry.weightKg,
+          note: entry.note ?? '',
+        })
+        if (!entries.value.some(e => e.id === rec.id)) {
+          entries.value.push(toWeightEntry(rec))
+        }
+      }
+      catch { /* silently fail */ }
+    }
+  }
+
+  async function updateEntry(id: string, patch: Partial<Pick<WeightEntry, 'weightKg' | 'note'>>) {
+    const existing = entries.value.find(e => e.id === id)
+    if (!existing) return
+
+    const payload: Record<string, unknown> = {}
+    if (patch.weightKg !== undefined) payload.weight_kg = patch.weightKg
+    if (patch.note !== undefined) payload.note = patch.note ?? ''
+
+    await pb.collection(COLLECTIONS.WEIGHT_ENTRIES).update(id, payload)
+    const idx = entries.value.findIndex(e => e.id === id)
+    if (idx !== -1) entries.value[idx] = { ...existing, ...patch }
   }
 
   async function deleteEntry(id: string) {
@@ -590,11 +615,12 @@ export const useWeightStore = defineStore('weight', () => {
     return upsertCalorieEntry(date, { goalOverrideKcal: kcal })
   }
 
-  async function saveDailyCalories(payload: { date: string; calories: number | null; goalOverrideKcal: number | null }) {
+  async function saveDailyCalories(payload: { date: string; calories: number | null; goalOverrideKcal: number | null; note?: string }) {
     // Merge both fields in a single upsert to avoid two round-trips
     await upsertCalorieEntry(payload.date, {
       calories: payload.calories,
       goalOverrideKcal: payload.goalOverrideKcal,
+      ...(payload.note !== undefined ? { note: payload.note } : {}),
     })
   }
 
@@ -630,6 +656,7 @@ export const useWeightStore = defineStore('weight', () => {
     monthlyAverage,
     chartData,
     addEntry,
+    updateEntry,
     deleteEntry,
     setUnit,
     persistSettings,

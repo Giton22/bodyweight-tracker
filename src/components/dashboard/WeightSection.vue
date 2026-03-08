@@ -4,6 +4,7 @@ import { useWeightStore } from '@/stores/weight'
 import { useUnits } from '@/composables/useUnits'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import StatCard from '@/components/dashboard/StatCard.vue'
+import QuickLogWeight from '@/components/dashboard/QuickLogWeight.vue'
 import WeightChart from '@/components/dashboard/WeightChart.vue'
 import RecentEntries from '@/components/dashboard/RecentEntries.vue'
 import AverageModeToggle from '@/components/dashboard/AverageModeToggle.vue'
@@ -32,11 +33,7 @@ const goalRemaining = computed(() => {
   <div class="space-y-6">
     <!-- Weight Stat Cards -->
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      <StatCard
-        title="Current Weight"
-        :value="store.currentWeight !== null ? format(store.currentWeight) : '—'"
-        :description="store.latestEntry ? `as of ${store.latestEntry.date}` : undefined"
-      />
+      <QuickLogWeight />
       <StatCard
         title="Goal Weight"
         :value="format(store.settings.goalWeightKg)"
