@@ -481,10 +481,6 @@ export const useWeightStore = defineStore('weight', () => {
     const userId = pb.authStore.record?.id
     if (!userId) return
 
-    // Optimistic: add locally first (realtime will also fire but we deduplicate by id)
-    const tempId = crypto.randomUUID()
-    entries.value.push({ ...entry, id: tempId })
-
     try {
       const rec = await pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).create({
         user: userId,
@@ -492,31 +488,16 @@ export const useWeightStore = defineStore('weight', () => {
         weight_kg: entry.weightKg,
         note: entry.note ?? '',
       })
-      const tempIdx = entries.value.findIndex(e => e.id === tempId)
-      if (tempIdx !== -1) {
-        // Realtime may have already inserted the real record — just drop the temp
-        if (entries.value.some(e => e.id === rec.id)) {
-          entries.value.splice(tempIdx, 1)
-        }
-        else {
-          entries.value[tempIdx] = toWeightEntry(rec)
-        }
+      if (!entries.value.some(e => e.id === rec.id)) {
+        entries.value.push(toWeightEntry(rec))
       }
     }
-    catch {
-      entries.value = entries.value.filter(e => e.id !== tempId)
-    }
+    catch { /* silently fail */ }
   }
 
   async function deleteEntry(id: string) {
-    const prev = [...entries.value]
+    await pb.collection(COLLECTIONS.WEIGHT_ENTRIES).delete(id)
     entries.value = entries.value.filter(e => e.id !== id)
-    try {
-      await pb.collection(COLLECTIONS.WEIGHT_ENTRIES).delete(id)
-    }
-    catch {
-      entries.value = prev
-    }
   }
 
   function setUnit(unit: 'kg' | 'lbs') {
@@ -547,34 +528,23 @@ export const useWeightStore = defineStore('weight', () => {
     const existing = kcalGoalHistory.value.find(g => g.effectiveFrom === today)
     if (existing) {
       // Update existing
+      await pb.collection(COLLECTIONS.KCAL_GOAL_HISTORY).update(existing.id, { kcal })
       kcalGoalHistory.value = kcalGoalHistory.value.map(g =>
         g.effectiveFrom === today ? { ...g, kcal } : g,
       )
-      await pb.collection(COLLECTIONS.KCAL_GOAL_HISTORY).update(existing.id, { kcal })
     }
     else {
-      // Create new optimistically
-      const tempId = crypto.randomUUID()
-      kcalGoalHistory.value.push({ id: tempId, effectiveFrom: today, kcal })
       try {
         const rec = await pb.collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY).create({
           user: userId,
           effective_from: today,
           kcal,
         })
-        const tempIdx = kcalGoalHistory.value.findIndex(g => g.id === tempId)
-        if (tempIdx !== -1) {
-          if (kcalGoalHistory.value.some(g => g.id === rec.id)) {
-            kcalGoalHistory.value.splice(tempIdx, 1)
-          }
-          else {
-            kcalGoalHistory.value[tempIdx] = toKcalGoalChange(rec)
-          }
+        if (!kcalGoalHistory.value.some(g => g.id === rec.id)) {
+          kcalGoalHistory.value.push(toKcalGoalChange(rec))
         }
       }
-      catch {
-        kcalGoalHistory.value = kcalGoalHistory.value.filter(g => g.id !== tempId)
-      }
+      catch { /* silently fail */ }
     }
   }
 
@@ -586,21 +556,17 @@ export const useWeightStore = defineStore('weight', () => {
 
     if (existing) {
       const updated = { ...existing, ...patch }
-      const idx = calorieEntries.value.findIndex(e => e.date === date)
-      if (idx !== -1) calorieEntries.value[idx] = updated
-
       await pb.collection(COLLECTIONS.CALORIE_ENTRIES).update(existing.id, {
         calories: updated.calories,
         goal_override_kcal: updated.goalOverrideKcal ?? null,
         note: updated.note ?? '',
       })
+      const idx = calorieEntries.value.findIndex(e => e.date === date)
+      if (idx !== -1) calorieEntries.value[idx] = updated
     }
     else {
-      const tempId = crypto.randomUUID()
-      const newEntry: CalorieEntry = { id: tempId, date, calories: null, ...patch }
-      calorieEntries.value.push(newEntry)
-
       try {
+        const newEntry = { date, calories: null, ...patch }
         const rec = await pb.collection<CalorieEntryRecord>(COLLECTIONS.CALORIE_ENTRIES).create({
           user: userId,
           date,
@@ -608,19 +574,11 @@ export const useWeightStore = defineStore('weight', () => {
           goal_override_kcal: newEntry.goalOverrideKcal ?? null,
           note: newEntry.note ?? '',
         })
-        const tempIdx = calorieEntries.value.findIndex(e => e.id === tempId)
-        if (tempIdx !== -1) {
-          if (calorieEntries.value.some(e => e.id === rec.id)) {
-            calorieEntries.value.splice(tempIdx, 1)
-          }
-          else {
-            calorieEntries.value[tempIdx] = toCalorieEntry(rec)
-          }
+        if (!calorieEntries.value.some(e => e.id === rec.id)) {
+          calorieEntries.value.push(toCalorieEntry(rec))
         }
       }
-      catch {
-        calorieEntries.value = calorieEntries.value.filter(e => e.id !== tempId)
-      }
+      catch { /* silently fail */ }
     }
   }
 
@@ -644,14 +602,8 @@ export const useWeightStore = defineStore('weight', () => {
     const entry = calorieEntries.value.find(e => e.date === date)
     if (!entry) return
 
-    const prev = [...calorieEntries.value]
+    await pb.collection(COLLECTIONS.CALORIE_ENTRIES).delete(entry.id)
     calorieEntries.value = calorieEntries.value.filter(e => e.date !== date)
-    try {
-      await pb.collection(COLLECTIONS.CALORIE_ENTRIES).delete(entry.id)
-    }
-    catch {
-      calorieEntries.value = prev
-    }
   }
 
   return {

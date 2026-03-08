@@ -32,7 +32,7 @@ export function generateMockEntries(): WeightEntry[] {
     const dateStr = date.toISOString().split('T')[0]!
 
     entries.push({
-      id: crypto.randomUUID(),
+      id: `mock-weight-${i}`,
       date: dateStr,
       weightKg: weight,
       note: dayIndex === 0 ? 'Starting my journey!' : undefined,
@@ -62,7 +62,7 @@ export function generateMockCalorieEntries(): CalorieEntry[] {
     const calories = Math.round(base + noise)
 
     entries.push({
-      id: crypto.randomUUID(),
+      id: `mock-calorie-${i}`,
       date: dateStr,
       calories,
     })
