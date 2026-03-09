@@ -163,6 +163,20 @@ const weightUnitLabel = computed(() => isKg.value ? 'kg' : 'lbs')
       <h2 class="text-xl font-semibold">Settings</h2>
     </div>
 
+    <!-- New user profile setup banner -->
+    <div
+      v-if="store.isSynced && !store.settingsRecordId"
+      class="mb-6 flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4"
+    >
+      <Icon icon="lucide:info" class="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+      <div>
+        <p class="font-medium text-foreground">Complete your profile</p>
+        <p class="text-sm text-muted-foreground">
+          Fill in your details below and save to get the most out of your tracker.
+        </p>
+      </div>
+    </div>
+
     <div class="flex flex-col gap-6">
       <!-- ── Profile Settings Card ── -->
       <Card>

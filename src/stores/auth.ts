@@ -14,7 +14,7 @@ export const useAuthStore = defineStore('auth', () => {
   // null = not yet checked, true = setup done, false = first launch
   const setupComplete = ref<boolean | null>(null)
 
-  const isAuthenticated = computed(() => pb.authStore.isValid && currentUser.value !== null)
+  const isAuthenticated = computed(() => currentUser.value !== null && pb.authStore.isValid)
 
   // Keep local ref in sync when PocketBase auth state changes (e.g. token refresh)
   pb.authStore.onChange((token, record) => {

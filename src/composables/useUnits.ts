@@ -9,7 +9,7 @@ export function useUnits() {
   const isKg = computed(() => store.settings.unit === 'kg')
 
   function convert(kg: number): number {
-    return isKg.value ? kg : Math.round(kg * KG_TO_LBS * 10) / 10
+    return isKg.value ? Math.round(kg * 10) / 10 : Math.round(kg * KG_TO_LBS * 10) / 10
   }
 
   function format(kg: number): string {
