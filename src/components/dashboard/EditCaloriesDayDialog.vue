@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
+import { Icon } from '@iconify/vue'
 import type { DailyCalorieRow } from '@/types'
 import { useWeightStore } from '@/stores/weight'
+import { formatDateLong } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,26 +17,24 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
-const props = defineProps<{
-  open: boolean
-  row: DailyCalorieRow | null
-}>()
+const open = defineModel<boolean>('open', { required: true })
 
-const emit = defineEmits<{
-  (e: 'update:open', value: boolean): void
+const props = defineProps<{
+  row: DailyCalorieRow | null
 }>()
 
 const store = useWeightStore()
 
 const consumedValue = ref<string | number>('')
 const overrideValue = ref<string | number>('')
+const saving = ref(false)
 
 function normalizeInput(value: string | number): string {
   return String(value).trim()
 }
 
 watch(
-  () => ({ isOpen: props.open, row: props.row }),
+  () => ({ isOpen: open.value, row: props.row }),
   ({ isOpen, row }) => {
     if (!isOpen || !row) return
     consumedValue.value = row.consumedKcal !== null ? String(row.consumedKcal) : ''
@@ -44,7 +45,7 @@ watch(
 
 const resolvedGlobalGoal = computed(() => {
   if (!props.row) return null
-  return store.kcalGoalHistory.length >= 0
+  return store.kcalGoalHistory.length > 0
     ? (() => {
         const history = [...store.kcalGoalHistory].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
         let result: number | null = null
@@ -72,11 +73,11 @@ const statusPreview = computed(() => {
 })
 
 function closeDialog() {
-  emit('update:open', false)
+  open.value = false
 }
 
-function save() {
-  if (!props.row) return
+async function save() {
+  if (!props.row || saving.value) return
 
   const rawConsumed = normalizeInput(consumedValue.value)
   const rawOverride = normalizeInput(overrideValue.value)
@@ -89,36 +90,34 @@ function save() {
     return
   }
 
-  store.saveDailyCalories({
-    date: props.row.date,
-    calories: calories === null ? null : Math.round(calories),
-    goalOverrideKcal: goalOverrideKcal === null ? null : Math.round(goalOverrideKcal),
-  })
+  saving.value = true
+  try {
+    await store.saveDailyCalories({
+      date: props.row.date,
+      calories: calories === null ? null : Math.round(calories),
+      goalOverrideKcal: goalOverrideKcal === null ? null : Math.round(goalOverrideKcal),
+    })
 
-  closeDialog()
+    closeDialog()
+  } catch {
+    toast.error('Failed to save calorie entry')
+  } finally {
+    saving.value = false
+  }
 }
 
 function resetOverride() {
   overrideValue.value = ''
 }
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
 </script>
 
 <template>
-  <Dialog :open="open" @update:open="emit('update:open', $event)">
+  <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-[460px]">
       <DialogHeader>
         <DialogTitle>Edit Daily Calories</DialogTitle>
         <DialogDescription v-if="row">
-          Update calories and an optional per-day override for {{ formatDate(row.date) }}.
+          Update calories and an optional per-day override for {{ formatDateLong(row.date) }}.
         </DialogDescription>
       </DialogHeader>
 
@@ -177,7 +176,10 @@ function formatDate(dateStr: string): string {
 
       <DialogFooter>
         <Button type="button" variant="outline" @click="closeDialog">Cancel</Button>
-        <Button type="button" @click="save">Save</Button>
+        <Button type="button" :disabled="saving" @click="save">
+          <Icon v-if="saving" icon="lucide:loader-circle" class="mr-2 h-4 w-4 animate-spin" />
+          Save
+        </Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>

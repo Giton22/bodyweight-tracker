@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 import { Icon } from '@iconify/vue'
 import { useWeightStore } from '@/stores/weight'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ const store = useWeightStore()
 
 const open = ref(false)
 const goalValue = ref<number | undefined>()
+const saving = ref(false)
 
 // Pre-fill with current global goal when dialog opens
 watch(open, (isOpen) => {
@@ -27,13 +29,20 @@ watch(open, (isOpen) => {
   }
 })
 
-function submit() {
-  if (!goalValue.value || goalValue.value <= 0) return
+async function submit() {
+  if (!goalValue.value || goalValue.value <= 0 || saving.value) return
 
-  store.setGlobalKcalGoal(Math.round(goalValue.value))
+  saving.value = true
+  try {
+    await store.setGlobalKcalGoal(Math.round(goalValue.value))
 
-  goalValue.value = undefined
-  open.value = false
+    goalValue.value = undefined
+    open.value = false
+  } catch {
+    toast.error('Failed to set calorie goal')
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -69,7 +78,10 @@ function submit() {
           Current goal: {{ store.currentGlobalKcalGoal }} kcal/day
         </p>
         <DialogFooter>
-          <Button type="submit" :disabled="!goalValue || goalValue <= 0">Save</Button>
+          <Button type="submit" :disabled="!goalValue || goalValue <= 0 || saving">
+            <Icon v-if="saving" icon="lucide:loader-circle" class="mr-2 h-4 w-4 animate-spin" />
+            Save
+          </Button>
         </DialogFooter>
       </form>
     </DialogContent>

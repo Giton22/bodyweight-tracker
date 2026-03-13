@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue'
+import { toast } from 'vue-sonner'
 import { Icon } from '@iconify/vue'
 import { useWeightStore } from '@/stores/weight'
 import { useUnits } from '@/composables/useUnits'
+import { todayISO } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,17 +19,13 @@ import {
 } from '@/components/ui/dialog'
 
 const store = useWeightStore()
-const { isKg, convert } = useUnits()
-
-function localDateISO(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+const { isKg, convert, toKg } = useUnits()
 
 const open = ref(false)
-const date = ref(localDateISO())
+const date = ref(todayISO())
 const weight = ref<number | undefined>()
 const note = ref('')
+const saving = ref(false)
 const weightInputRef = ref<InstanceType<typeof Input> | null>(null)
 
 const existingEntry = computed(() =>
@@ -48,7 +46,7 @@ watch(date, (newDate) => {
 // Auto-focus weight input when dialog opens
 watch(open, (isOpen) => {
   if (isOpen) {
-    date.value = localDateISO()
+    date.value = todayISO()
     // Pre-fill if today already has an entry
     const existing = store.sortedEntries.find(e => e.date === date.value)
     if (existing) {
@@ -62,22 +60,27 @@ watch(open, (isOpen) => {
   }
 })
 
-function submit() {
-  if (!weight.value || !date.value) return
+async function submit() {
+  if (!weight.value || !date.value || saving.value) return
 
-  const weightKg = isKg.value ? weight.value : weight.value / 2.20462
+  saving.value = true
+  try {
+    await store.addEntry({
+      date: date.value,
+      weightKg: toKg(weight.value),
+      note: note.value || undefined,
+    })
 
-  store.addEntry({
-    date: date.value,
-    weightKg: Math.round(weightKg * 10) / 10,
-    note: note.value || undefined,
-  })
-
-  // Reset
-  weight.value = undefined
-  note.value = ''
-  date.value = localDateISO()
-  open.value = false
+    // Reset
+    weight.value = undefined
+    note.value = ''
+    date.value = todayISO()
+    open.value = false
+  } catch {
+    toast.error('Failed to save weight entry')
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -119,7 +122,8 @@ function submit() {
           <Input id="note" v-model="note" placeholder="e.g. After workout" />
         </div>
         <DialogFooter>
-          <Button type="submit" :disabled="!weight || !date">
+          <Button type="submit" :disabled="!weight || !date || saving">
+            <Icon v-if="saving" icon="lucide:loader-circle" class="mr-2 h-4 w-4 animate-spin" />
             {{ isUpdating ? 'Update' : 'Save' }}
           </Button>
         </DialogFooter>

@@ -1,25 +1,23 @@
 <script setup lang="ts">
 import { computed, ref, nextTick } from 'vue'
+import { toast } from 'vue-sonner'
 import { Icon } from '@iconify/vue'
 import { useWeightStore } from '@/stores/weight'
 import { useUnits } from '@/composables/useUnits'
+import { todayISO } from '@/lib/date'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 const store = useWeightStore()
-const { convert, isKg, format } = useUnits()
-
-function todayISO(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
+const { convert, isKg, format, toKg } = useUnits()
 
 const todayEntry = computed(() =>
   store.sortedEntries.find(e => e.date === todayISO()),
 )
 
 const editing = ref(false)
+const saving = ref(false)
 const weightInput = ref<number | undefined>()
 const inputRef = ref<InstanceType<typeof Input> | null>(null)
 
@@ -33,17 +31,22 @@ function startEditing() {
 }
 
 async function save() {
-  if (!weightInput.value) return
+  if (!weightInput.value || saving.value) return
 
-  const weightKg = isKg.value ? weightInput.value : weightInput.value / 2.20462
+  saving.value = true
+  try {
+    await store.addEntry({
+      date: todayISO(),
+      weightKg: toKg(weightInput.value),
+    })
 
-  await store.addEntry({
-    date: todayISO(),
-    weightKg: Math.round(weightKg * 10) / 10,
-  })
-
-  editing.value = false
-  weightInput.value = undefined
+    editing.value = false
+    weightInput.value = undefined
+  } catch {
+    toast.error('Failed to save weight entry')
+  } finally {
+    saving.value = false
+  }
 }
 
 function cancel() {
@@ -84,8 +87,8 @@ function cancel() {
             :placeholder="isKg ? 'kg' : 'lbs'"
             class="h-8 w-24"
           />
-          <Button type="submit" size="sm" class="h-8" :disabled="!weightInput">
-            <Icon icon="lucide:check" class="h-4 w-4" />
+          <Button type="submit" size="sm" class="h-8" :disabled="!weightInput || saving">
+            <Icon :icon="saving ? 'lucide:loader-circle' : 'lucide:check'" class="h-4 w-4" :class="saving && 'animate-spin'" />
           </Button>
           <Button type="button" variant="ghost" size="sm" class="h-8" @click="cancel">
             <Icon icon="lucide:x" class="h-4 w-4" />

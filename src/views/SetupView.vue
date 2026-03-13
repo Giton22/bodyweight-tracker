@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWeightStore } from '@/stores/weight'
+import { lbsToKg } from '@/composables/useUnits'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -44,7 +45,7 @@ const isLoading = ref(false)
 function displayToKg(val: string): number | undefined {
   const n = Number.parseFloat(val)
   if (Number.isNaN(n) || n <= 0) return undefined
-  return unit.value === 'kg' ? n : Math.round((n / 2.20462) * 10) / 10
+  return unit.value === 'kg' ? n : lbsToKg(n)
 }
 
 // ── Step validation ──

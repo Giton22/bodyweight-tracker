@@ -14,18 +14,23 @@ import LogWeightDialog from '@/components/dashboard/LogWeightDialog.vue'
 const store = useWeightStore()
 const { format, formatDelta } = useUnits()
 
-const bmiCategory = computed(() => {
-  const bmi = store.bmi
-  if (bmi === null) return ''
-  if (bmi < 18.5) return 'Underweight'
-  if (bmi < 25) return 'Normal'
-  if (bmi < 30) return 'Overweight'
-  return 'Obese'
-})
-
 const goalRemaining = computed(() => {
   if (store.currentWeight === null) return null
-  return store.currentWeight - store.settings.goalWeightKg
+  const diff = store.currentWeight - store.settings.goalWeightKg
+  const direction = store.settings.goalDirection
+
+  if (direction === 'gain') {
+    // Weight gain: negative diff means still need to gain, 0+ means reached
+    return diff >= 0 ? 0 : diff
+  }
+  // Weight loss (default): positive diff means still need to lose, 0- means reached
+  return diff <= 0 ? 0 : diff
+})
+
+const goalDescription = computed(() => {
+  if (goalRemaining.value === null) return undefined
+  if (goalRemaining.value === 0) return 'Goal reached!'
+  return `${formatDelta(goalRemaining.value)} remaining`
 })
 </script>
 
@@ -37,12 +42,12 @@ const goalRemaining = computed(() => {
       <StatCard
         title="Goal Weight"
         :value="format(store.settings.goalWeightKg)"
-        :description="goalRemaining !== null ? `${formatDelta(goalRemaining)} remaining` : undefined"
+        :description="goalDescription"
       />
       <StatCard
         title="BMI"
         :value="store.bmi !== null ? String(store.bmi) : '—'"
-        :description="bmiCategory"
+        :description="store.bmiCategory?.shortLabel ?? ''"
       />
       <StatCard
         title="7-Day Trend"

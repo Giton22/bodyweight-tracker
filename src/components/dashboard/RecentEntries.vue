@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue'
 import type { WeightEntry } from '@/types'
 import { useWeightStore } from '@/stores/weight'
 import { useUnits } from '@/composables/useUnits'
+import { formatDateShort } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -55,13 +56,7 @@ async function executeDelete() {
   deleteTarget.value = null
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+
 </script>
 
 <template>
@@ -75,8 +70,16 @@ function formatDate(dateStr: string): string {
       </TableRow>
     </TableHeader>
     <TableBody>
+      <TableRow v-if="recentEntries.length === 0">
+        <TableCell colspan="4" class="py-8 text-center">
+          <div class="flex flex-col items-center gap-1">
+            <Icon icon="lucide:scale" class="h-8 w-8 text-muted-foreground/30" />
+            <p class="text-sm text-muted-foreground">No weight entries yet</p>
+          </div>
+        </TableCell>
+      </TableRow>
       <TableRow v-for="entry in recentEntries" :key="entry.id">
-        <TableCell class="font-medium">{{ formatDate(entry.date) }}</TableCell>
+        <TableCell class="font-medium">{{ formatDateShort(entry.date) }}</TableCell>
         <TableCell>{{ format(entry.weightKg) }}</TableCell>
         <TableCell class="text-muted-foreground">{{ entry.note ?? '—' }}</TableCell>
         <TableCell>
@@ -111,7 +114,7 @@ function formatDate(dateStr: string): string {
       <DialogHeader>
         <DialogTitle>Delete Entry</DialogTitle>
         <DialogDescription v-if="deleteTarget">
-          Are you sure you want to delete the weight entry for {{ formatDate(deleteTarget.date) }}? This action cannot be undone.
+          Are you sure you want to delete the weight entry for {{ formatDateShort(deleteTarget.date) }}? This action cannot be undone.
         </DialogDescription>
       </DialogHeader>
       <DialogFooter>

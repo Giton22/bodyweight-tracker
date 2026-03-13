@@ -2,7 +2,8 @@ import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { Goal, Group, GroupMember } from '@/types'
 import { pb, COLLECTIONS } from '@/lib/pocketbase'
-import type { GoalRecord, GroupMemberRecord, GroupRecord } from '@/lib/pocketbase'
+import { kgToLbs } from '@/composables/useUnits'
+import type { GoalRecord, GroupMemberRecord, GroupRecord, GroupMemberWithUserExpand, GroupMemberWithGroupExpand } from '@/lib/pocketbase'
 
 // ── Record → domain type mappers ──
 
@@ -16,15 +17,15 @@ function toGroup(r: GroupRecord): Group {
   }
 }
 
-function toGroupMember(r: GroupMemberRecord): GroupMember {
+function toGroupMember(r: GroupMemberWithUserExpand): GroupMember {
   const member: GroupMember = {
     id: r.id,
     group: r.group,
     user: r.user,
     role: r.role,
   }
-  if ((r as any).expand?.user) {
-    member.expand = { user: (r as any).expand.user }
+  if (r.expand?.user) {
+    member.expand = { user: r.expand.user }
   }
   return member
 }
@@ -76,14 +77,14 @@ export const useGroupsStore = defineStore('groups', () => {
 
     isLoading.value = true
     try {
-      const memberRecords = await pb.collection<GroupMemberRecord>(COLLECTIONS.GROUP_MEMBERS).getFullList({
-        filter: `user = "${userId}"`,
+      const memberRecords = await pb.collection<GroupMemberWithGroupExpand>(COLLECTIONS.GROUP_MEMBERS).getFullList({
+        filter: pb.filter('user = {:userId}', { userId }),
         expand: 'group',
       })
 
       myGroups.value = memberRecords
         .map((r) => {
-          const expanded = (r as any).expand?.group
+          const expanded = r.expand?.group
           return expanded ? toGroup(expanded) : null
         })
         .filter((g): g is Group => g !== null)
@@ -100,8 +101,8 @@ export const useGroupsStore = defineStore('groups', () => {
       currentGroup.value = toGroup(groupRec)
 
       // Fetch members with user expand
-      const memberRecords = await pb.collection<GroupMemberRecord>(COLLECTIONS.GROUP_MEMBERS).getFullList({
-        filter: `group = "${groupId}"`,
+      const memberRecords = await pb.collection<GroupMemberWithUserExpand>(COLLECTIONS.GROUP_MEMBERS).getFullList({
+        filter: pb.filter('group = {:groupId}', { groupId }),
         expand: 'user',
       })
       currentMembers.value = memberRecords.map(toGroupMember)
@@ -109,9 +110,10 @@ export const useGroupsStore = defineStore('groups', () => {
       // Fetch group-visible goals for all members
       const memberIds = currentMembers.value.map((m) => m.user)
       if (memberIds.length > 0) {
-        const userFilter = memberIds.map((id) => `user = "${id}"`).join(' || ')
+        const conditions = memberIds.map((_, i) => `user = {:uid${i}}`)
+        const params: Record<string, string> = Object.fromEntries(memberIds.map((id, i) => [`uid${i}`, id]))
         const goalRecords = await pb.collection<GoalRecord>(COLLECTIONS.GOALS).getFullList({
-          filter: `(${userFilter}) && visibility != "private"`,
+          filter: pb.filter(`(${conditions.join(' || ')}) && visibility != "private"`, params),
           sort: '-updated',
         })
         currentGoals.value = goalRecords.map(toGoal)
@@ -153,17 +155,17 @@ export const useGroupsStore = defineStore('groups', () => {
     if (!userId) throw new Error('Not authenticated')
 
     const groupRec = await pb.collection<GroupRecord>(COLLECTIONS.GROUPS).getFirstListItem(
-      `invite_code = "${code.toUpperCase()}"`,
+      pb.filter('invite_code = {:code}', { code: code.toUpperCase() }),
     )
 
     // Check if already a member
     try {
       await pb.collection(COLLECTIONS.GROUP_MEMBERS).getFirstListItem(
-        `group = "${groupRec.id}" && user = "${userId}"`,
+        pb.filter('group = {:groupId} && user = {:userId}', { groupId: groupRec.id, userId }),
       )
       throw new Error('You are already a member of this group')
-    } catch (e: any) {
-      if (e.message === 'You are already a member of this group') throw e
+    } catch (e: unknown) {
+      if (e instanceof Error && e.message === 'You are already a member of this group') throw e
       // 404 means not a member yet — continue
     }
 
@@ -183,7 +185,7 @@ export const useGroupsStore = defineStore('groups', () => {
     if (!userId) return
 
     const membership = await pb.collection<GroupMemberRecord>(COLLECTIONS.GROUP_MEMBERS).getFirstListItem(
-      `group = "${groupId}" && user = "${userId}"`,
+      pb.filter('group = {:groupId} && user = {:userId}', { groupId, userId }),
     )
     await pb.collection(COLLECTIONS.GROUP_MEMBERS).delete(membership.id)
     myGroups.value = myGroups.value.filter((g) => g.id !== groupId)
@@ -213,14 +215,14 @@ export const useGroupsStore = defineStore('groups', () => {
     if (!userId || !goalWeightKg || !currentWeightKg) return
 
     const toDisplay = (kg: number) =>
-      unit === 'lbs' ? Math.round(kg * 2.20462 * 10) / 10 : kg
+      unit === 'lbs' ? kgToLbs(kg) : kg
 
     try {
       if (!weightGoalId) {
         // Try to find existing weight goal
         try {
           const existing = await pb.collection<GoalRecord>(COLLECTIONS.GOALS).getFirstListItem(
-            `user = "${userId}" && title = "Weight Goal"`,
+            pb.filter('user = {:userId} && title = {:title}', { userId, title: 'Weight Goal' }),
           )
           weightGoalId = existing.id
         } catch {
@@ -263,10 +265,14 @@ export const useGroupsStore = defineStore('groups', () => {
   function subscribeGroupGoals(memberIds: string[]) {
     if (memberIds.length === 0) return
 
-    const userFilter = memberIds.map((id) => `user = "${id}"`).join(' || ')
+    const conditions = memberIds.map((_, i) => `user = {:uid${i}}`)
+    const params: Record<string, string> = Object.fromEntries(memberIds.map((id, i) => [`uid${i}`, id]))
 
     pb.collection<GoalRecord>(COLLECTIONS.GOALS).subscribe('*', (e) => {
-      if (e.record.visibility === 'private') return
+      // The server filter excludes private goals, but visibility can change
+      // in an update event — cast to string for the defensive check.
+      const visibility = e.record.visibility as string
+      if (visibility === 'private') return
 
       if (e.action === 'create') {
         if (!currentGoals.value.some((g) => g.id === e.record.id)) {
@@ -275,18 +281,14 @@ export const useGroupsStore = defineStore('groups', () => {
       } else if (e.action === 'update') {
         const idx = currentGoals.value.findIndex((g) => g.id === e.record.id)
         if (idx !== -1) {
-          if (e.record.visibility === 'private') {
-            currentGoals.value.splice(idx, 1)
-          } else {
-            currentGoals.value[idx] = toGoal(e.record)
-          }
-        } else if (e.record.visibility !== 'private') {
+          currentGoals.value[idx] = toGoal(e.record)
+        } else {
           currentGoals.value.unshift(toGoal(e.record))
         }
       } else if (e.action === 'delete') {
         currentGoals.value = currentGoals.value.filter((g) => g.id !== e.record.id)
       }
-    }, { filter: `(${userFilter}) && visibility != "private"` })
+    }, { filter: pb.filter(`(${conditions.join(' || ')}) && visibility != "private"`, params) })
   }
 
   function unsubscribeGroupGoals() {

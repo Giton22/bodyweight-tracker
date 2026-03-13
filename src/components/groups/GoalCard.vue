@@ -17,10 +17,14 @@ const progress = computed(() => {
 
   let pct: number
   if (direction.value === 'loss') {
-    // Loss: 100% when current <= target, 0% when infinitely far
-    pct = Math.round((target / current) * 100)
+    // Weight loss: 100% when current <= target
+    if (current <= target) return 100
+    // Without a stored start weight, estimate progress as how close
+    // current is to target relative to the remaining gap
+    pct = Math.round((1 - (current - target) / current) * 100)
   } else {
-    // Gain: 100% when current >= target
+    // Weight gain: 100% when current >= target
+    if (current >= target) return 100
     pct = Math.round((current / target) * 100)
   }
   return Math.max(0, Math.min(100, pct))

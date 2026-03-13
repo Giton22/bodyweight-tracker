@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import type { DailyCalorieRow } from '@/types'
 import { useWeightStore } from '@/stores/weight'
+import { formatDateShort } from '@/lib/date'
 import { Badge } from '@/components/ui/badge'
 import {
   Table,
@@ -26,13 +27,7 @@ function openRow(row: DailyCalorieRow) {
   dialogOpen.value = true
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  })
-}
+
 </script>
 
 <template>
@@ -49,6 +44,14 @@ function formatDate(dateStr: string): string {
           </TableRow>
         </TableHeader>
         <TableBody>
+          <TableRow v-if="rows.length === 0">
+            <TableCell colspan="5" class="py-8 text-center">
+              <div class="flex flex-col items-center gap-1">
+                <Icon icon="lucide:utensils" class="h-8 w-8 text-muted-foreground/30" />
+                <p class="text-sm text-muted-foreground">No calorie entries yet</p>
+              </div>
+            </TableCell>
+          </TableRow>
           <TableRow
             v-for="row in rows"
             :key="row.date"
@@ -56,7 +59,7 @@ function formatDate(dateStr: string): string {
             :class="{ 'bg-destructive/5 hover:bg-destructive/10': row.isExceeded }"
             @click="openRow(row)"
           >
-            <TableCell class="font-medium">{{ formatDate(row.date) }}</TableCell>
+            <TableCell class="font-medium">{{ formatDateShort(row.date) }}</TableCell>
             <TableCell>
               <span v-if="row.consumedKcal !== null" :class="{ 'font-semibold text-destructive': row.isExceeded }">
                 {{ row.consumedKcal }}

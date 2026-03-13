@@ -6,8 +6,11 @@ declare module 'vue-router' {
   interface RouteMeta {
     requiresAuth?: boolean
     guestOnly?: boolean
+    title?: string
   }
 }
+
+const APP_TITLE = 'Bodyweight Tracker'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -16,37 +19,43 @@ const router = createRouter({
       path: '/',
       name: 'dashboard',
       component: () => import('@/views/DashboardView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, title: 'Dashboard' },
     },
     {
       path: '/settings',
       name: 'settings',
       component: () => import('@/views/SettingsView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, title: 'Settings' },
     },
     {
       path: '/groups',
       name: 'groups',
       component: () => import('@/views/GroupsView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, title: 'Groups' },
     },
     {
       path: '/groups/:id',
       name: 'group-detail',
       component: () => import('@/views/GroupDetailView.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, title: 'Group' },
     },
     {
       path: '/auth',
       name: 'auth',
       component: () => import('@/views/AuthView.vue'),
-      meta: { guestOnly: true },
+      meta: { guestOnly: true, title: 'Sign In' },
     },
     {
       path: '/setup',
       name: 'setup',
       component: () => import('@/views/SetupView.vue'),
-      meta: { guestOnly: true },
+      meta: { guestOnly: true, title: 'Setup' },
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/NotFoundView.vue'),
+      meta: { title: 'Not Found' },
     },
   ],
 })
@@ -83,6 +92,11 @@ router.beforeEach(async (to) => {
   if (to.name === 'setup') {
     return isAuthenticated ? { name: 'dashboard' } : { name: 'auth' }
   }
+})
+
+router.afterEach((to) => {
+  const title = to.meta.title
+  document.title = title ? `${title} - ${APP_TITLE}` : APP_TITLE
 })
 
 export default router

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from 'vue'
+import { toast } from 'vue-sonner'
 import { Icon } from '@iconify/vue'
 import { useWeightStore } from '@/stores/weight'
+import { todayISO } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,37 +19,40 @@ import {
 
 const store = useWeightStore()
 
-function localDateISO(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 const open = ref(false)
-const date = ref(localDateISO())
+const date = ref(todayISO())
 const calories = ref<number | undefined>()
 const note = ref('')
+const saving = ref(false)
 const caloriesInputRef = ref<InstanceType<typeof Input> | null>(null)
 
 async function submit() {
-  if (!calories.value || !date.value) return
+  if (!calories.value || !date.value || saving.value) return
 
-  await store.saveDailyCalories({
-    date: date.value,
-    calories: Math.round(calories.value),
-    goalOverrideKcal: null,
-    note: note.value || undefined,
-  })
+  saving.value = true
+  try {
+    await store.saveDailyCalories({
+      date: date.value,
+      calories: Math.round(calories.value),
+      goalOverrideKcal: null,
+      note: note.value || undefined,
+    })
 
-  // Reset
-  calories.value = undefined
-  note.value = ''
-  date.value = localDateISO()
-  open.value = false
+    // Reset
+    calories.value = undefined
+    note.value = ''
+    date.value = todayISO()
+    open.value = false
+  } catch {
+    toast.error('Failed to save calorie entry')
+  } finally {
+    saving.value = false
+  }
 }
 
 function onOpenChange(value: boolean) {
   if (value) {
-    date.value = localDateISO()
+    date.value = todayISO()
     nextTick(() => {
       const el = caloriesInputRef.value?.$el?.querySelector('input') ?? caloriesInputRef.value?.$el
       el?.focus()
@@ -92,7 +97,10 @@ function onOpenChange(value: boolean) {
           <Input id="cal-note" v-model="note" placeholder="e.g. Cheat day" />
         </div>
         <DialogFooter>
-          <Button type="submit" :disabled="!calories || !date">Save</Button>
+          <Button type="submit" :disabled="!calories || !date || saving">
+            <Icon v-if="saving" icon="lucide:loader-circle" class="mr-2 h-4 w-4 animate-spin" />
+            Save
+          </Button>
         </DialogFooter>
       </form>
     </DialogContent>

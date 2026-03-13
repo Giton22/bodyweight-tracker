@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { BMI_CATEGORIES } from '@/composables/useBmi'
 
 interface Props {
   bmi: number | null
@@ -12,17 +13,13 @@ const GAUGE_MIN = 15
 const GAUGE_MAX = 45
 const GAUGE_RANGE = GAUGE_MAX - GAUGE_MIN
 
-// WHO category segments (start, end, color class, label)
-const segments = [
-  { min: 15, max: 16, colorClass: 'bg-blue-600', label: 'Severe' },
-  { min: 16, max: 17, colorClass: 'bg-blue-400', label: 'Moderate' },
-  { min: 17, max: 18.5, colorClass: 'bg-sky-400', label: 'Mild' },
-  { min: 18.5, max: 25, colorClass: 'bg-green-500', label: 'Normal' },
-  { min: 25, max: 30, colorClass: 'bg-yellow-400', label: 'Overweight' },
-  { min: 30, max: 35, colorClass: 'bg-orange-400', label: 'Obese I' },
-  { min: 35, max: 40, colorClass: 'bg-orange-600', label: 'Obese II' },
-  { min: 40, max: 45, colorClass: 'bg-red-600', label: 'Obese III' },
-]
+// Map shared BMI categories to gauge segments (clamp min to GAUGE_MIN)
+const segments = BMI_CATEGORIES.map(cat => ({
+  min: Math.max(cat.min, GAUGE_MIN),
+  max: cat.max,
+  colorClass: cat.bgColorClass,
+  label: cat.shortLabel,
+}))
 
 // Compute each segment's left % and width %
 const segmentStyles = computed(() =>

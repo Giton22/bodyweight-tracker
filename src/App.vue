@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { watch } from 'vue'
+import { Toaster } from 'vue-sonner'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useWeightStore } from '@/stores/weight'
@@ -32,7 +33,12 @@ watch(
   <div class="min-h-screen bg-background text-foreground">
     <AppHeader />
     <main>
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <Transition name="page" mode="out-in">
+          <component :is="Component" />
+        </Transition>
+      </RouterView>
     </main>
+    <Toaster rich-colors close-button position="bottom-right" />
   </div>
 </template>

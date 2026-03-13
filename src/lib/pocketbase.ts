@@ -58,6 +58,16 @@ export interface GroupMemberRecord extends RecordModel {
   role: 'owner' | 'member'
 }
 
+/** GroupMemberRecord with user relation expanded. */
+export interface GroupMemberWithUserExpand extends GroupMemberRecord {
+  expand?: { user?: { id: string; name?: string; username?: string; email?: string } }
+}
+
+/** GroupMemberRecord with group relation expanded. */
+export interface GroupMemberWithGroupExpand extends GroupMemberRecord {
+  expand?: { group?: GroupRecord }
+}
+
 export interface GoalRecord extends RecordModel {
   user: string
   title: string

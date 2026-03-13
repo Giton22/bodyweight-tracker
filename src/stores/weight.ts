@@ -1,8 +1,11 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { toast } from 'vue-sonner'
 import type { CalorieEntry, DailyCalorieRow, GoalDirection, KcalGoalChange, Sex, TimeRange, UserSettings, WeightEntry } from '@/types'
 import { pb, COLLECTIONS } from '@/lib/pocketbase'
 import type { WeightEntryRecord, CalorieEntryRecord, KcalGoalChangeRecord, UserSettingsRecord } from '@/lib/pocketbase'
+import { todayISO } from '@/lib/date'
+import { getBmiCategory } from '@/composables/useBmi'
 import { useGroupsStore } from '@/stores/groups'
 
 type AverageMode = 'daily' | 'weekly' | 'monthly'
@@ -57,12 +60,7 @@ function getISOWeekKey(dateStr: string): string {
   d.setUTCDate(d.getUTCDate() + 4 - day)
   const year = d.getUTCFullYear()
   const week = Math.ceil(((d.getTime() - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7)
-  return `${year}-W${String(week).padStart(2, '00')}`
-}
-
-function todayISO(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return `${year}-W${String(week).padStart(2, '0')}`
 }
 
 function cutoffISO(days: number): string {
@@ -108,7 +106,7 @@ export const useWeightStore = defineStore('weight', () => {
       const userId = pb.authStore.record?.id
       if (!userId) return
 
-      const filter = `user = "${userId}"`
+      const filter = pb.filter('user = {:userId}', { userId })
 
       const [weightRecords, calorieRecords, kcalGoalRecords, settingsRecords] = await Promise.all([
         pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).getFullList({ filter, sort: 'date' }),
@@ -140,7 +138,7 @@ export const useWeightStore = defineStore('weight', () => {
     const userId = pb.authStore.record?.id
     if (!userId) return
 
-    const filter = `user = "${userId}"`
+    const filter = pb.filter('user = {:userId}', { userId })
 
     pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).subscribe('*', (e) => {
       if (e.action === 'create') {
@@ -270,25 +268,8 @@ export const useWeightStore = defineStore('weight', () => {
     return Math.round((currentWeight.value / (heightM * heightM)) * 10) / 10
   })
 
-  // WHO BMI categories
-  const bmiCategory = computed((): {
-    label: string
-    color: string
-    description: string
-    min: number
-    max: number
-  } | null => {
-    const b = bmi.value
-    if (b === null) return null
-    if (b < 16.0) return { label: 'Severely Underweight', color: 'blue', description: 'Possible malnutrition or eating disorder', min: 0, max: 16.0 }
-    if (b < 17.0) return { label: 'Moderately Underweight', color: 'blue', description: 'Moderately underweight', min: 16.0, max: 17.0 }
-    if (b < 18.5) return { label: 'Mildly Underweight', color: 'sky', description: 'Slightly below healthy range', min: 17.0, max: 18.5 }
-    if (b < 25.0) return { label: 'Normal Weight', color: 'green', description: 'Healthy BMI range (18.5–25)', min: 18.5, max: 25.0 }
-    if (b < 30.0) return { label: 'Overweight', color: 'yellow', description: 'Pre-obese, increased health risk', min: 25.0, max: 30.0 }
-    if (b < 35.0) return { label: 'Obese Class I', color: 'orange', description: 'Moderately obese', min: 30.0, max: 35.0 }
-    if (b < 40.0) return { label: 'Obese Class II', color: 'red', description: 'Severely obese', min: 35.0, max: 40.0 }
-    return { label: 'Obese Class III', color: 'red', description: 'Very severely obese', min: 40.0, max: 45.0 }
-  })
+  // WHO BMI category (delegated to shared composable)
+  const bmiCategory = computed(() => getBmiCategory(bmi.value))
 
   // Healthy weight range (BMI 18.5–24.9) at user's height
   const healthyWeightRange = computed((): { minKg: number; maxKg: number } | null => {
@@ -513,7 +494,9 @@ export const useWeightStore = defineStore('weight', () => {
           entries.value.push(toWeightEntry(rec))
         }
       }
-      catch { /* silently fail */ }
+      catch {
+        toast.error('Failed to save weight entry. Please try again.')
+      }
     }
 
     // Sync weight goal for groups
@@ -584,7 +567,9 @@ export const useWeightStore = defineStore('weight', () => {
           kcalGoalHistory.value.push(toKcalGoalChange(rec))
         }
       }
-      catch { /* silently fail */ }
+      catch {
+        toast.error('Failed to set calorie goal. Please try again.')
+      }
     }
   }
 
@@ -618,7 +603,9 @@ export const useWeightStore = defineStore('weight', () => {
           calorieEntries.value.push(toCalorieEntry(rec))
         }
       }
-      catch { /* silently fail */ }
+      catch {
+        toast.error('Failed to save calorie entry. Please try again.')
+      }
     }
   }
 

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { Icon } from '@iconify/vue'
 import { VisXYContainer, VisLine, VisAxis, VisCrosshair, VisTooltip, VisScatter } from '@unovis/vue'
 import { useWeightStore } from '@/stores/weight'
 import { useUnits } from '@/composables/useUnits'
+import { formatDateCompact } from '@/lib/date'
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart'
 import type { ChartConfig } from '@/components/ui/chart'
 
@@ -32,14 +34,10 @@ const data = computed((): WeightDatum[] =>
 const x = (_d: WeightDatum, i: number) => i
 const y = (d: WeightDatum) => d.weight
 
-function formatDate(ms: number | Date): string {
-  return new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
 // Map index back to the date label of that data point
 const xTickFormat = (i: number) => {
   const d = data.value[Math.round(i)]
-  return d ? formatDate(d.date) : ''
+  return d ? formatDateCompact(d.date) : ''
 }
 
 const numTicks = computed(() => Math.min(data.value.length, 12))
@@ -56,7 +54,12 @@ const domainY = computed((): [number, number] => {
 </script>
 
 <template>
-  <ChartContainer :config="chartConfig" class="h-[280px] w-full">
+  <div v-if="data.length === 0" class="flex h-[280px] flex-col items-center justify-center gap-2 text-center">
+    <Icon icon="lucide:line-chart" class="h-10 w-10 text-muted-foreground/30" />
+    <p class="text-sm text-muted-foreground">No weight data in this range</p>
+    <p class="text-xs text-muted-foreground">Log your first weight to see your chart</p>
+  </div>
+  <ChartContainer v-else :config="chartConfig" class="h-[280px] w-full">
     <VisXYContainer :data="data" :margin="{ top: 10, right: 10, bottom: 30, left: 45 }" :domain-y="domainY">
       <VisLine
         :x="x"
@@ -86,7 +89,7 @@ const domainY = computed((): [number, number] => {
         label=""
       />
       <VisCrosshair
-        :template="(d: WeightDatum) => d ? `${formatDate(d.date)}: ${d.weight} ${unitLabel}` : ''"
+        :template="(d: WeightDatum) => d ? `${formatDateCompact(d.date)}: ${d.weight} ${unitLabel}` : ''"
         color="var(--chart-1)"
       />
       <VisTooltip>
@@ -96,7 +99,7 @@ const domainY = computed((): [number, number] => {
             :config="chartConfig"
             :payload="{ weight: tooltipData.weight }"
             :x="tooltipData.date"
-            :label-formatter="formatDate"
+            :label-formatter="formatDateCompact"
           />
         </template>
       </VisTooltip>

@@ -5,6 +5,7 @@ import { Icon } from '@iconify/vue'
 import { useWeightStore } from '@/stores/weight'
 import { useAuthStore } from '@/stores/auth'
 import { useUnits } from '@/composables/useUnits'
+import { BMI_CATEGORIES } from '@/composables/useBmi'
 import BmiGauge from '@/components/settings/BmiGauge.vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -29,7 +30,7 @@ import { Badge } from '@/components/ui/badge'
 const router = useRouter()
 const store = useWeightStore()
 const auth = useAuthStore()
-const { isKg, format, formatDelta } = useUnits()
+const { isKg, convert, toKg, format, formatDelta } = useUnits()
 
 // ── Form state (local draft — only saved on submit) ──
 
@@ -44,23 +45,22 @@ const goalDirectionValue = ref<string>(store.settings.goalDirection ?? '')
 const isSaving = ref(false)
 const saveSuccess = ref(false)
 
-// Convert stored kg goal to display unit
-function kgToDisplay(kg: number): string {
-  if (isKg.value) return String(kg)
-  return String(Math.round(kg * 2.20462 * 10) / 10)
+// Convert stored kg goal to display unit string
+function kgToDisplayStr(kg: number): string {
+  return String(convert(kg))
 }
 
-function displayToKg(val: string): number {
+function parseDisplayToKg(val: string): number {
   const n = Number.parseFloat(val)
   if (Number.isNaN(n)) return 0
-  return isKg.value ? n : Math.round((n / 2.20462) * 10) / 10
+  return toKg(n)
 }
 
 // Sync goal weight input when unit changes or settings load
 watch(
   [() => store.settings.goalWeightKg, isKg],
   ([kg]) => {
-    goalWeightInput.value = kg ? kgToDisplay(kg) : ''
+    goalWeightInput.value = kg ? kgToDisplayStr(kg) : ''
   },
   { immediate: true },
 )
@@ -105,7 +105,7 @@ async function saveSettings() {
   }
 
   const heightParsed = Number.parseFloat(heightCm.value)
-  const goalKg = displayToKg(goalWeightInput.value)
+  const goalKg = parseDisplayToKg(goalWeightInput.value)
 
   await store.persistSettings({
     heightCm: Number.isNaN(heightParsed) ? store.settings.heightCm : heightParsed,
@@ -125,15 +125,7 @@ async function saveSettings() {
 const bmiColorClass = computed(() => {
   const cat = store.bmiCategory
   if (!cat) return 'text-muted-foreground'
-  const map: Record<string, string> = {
-    blue: 'text-blue-500',
-    sky: 'text-sky-500',
-    green: 'text-green-500',
-    yellow: 'text-yellow-500',
-    orange: 'text-orange-500',
-    red: 'text-red-500',
-  }
-  return map[cat.color] ?? 'text-foreground'
+  return cat.textColorClass
 })
 
 const bmiBadgeVariant = computed((): 'default' | 'secondary' | 'destructive' | 'outline' => {
@@ -153,7 +145,7 @@ const weightDifferenceText = computed(() => {
   if (isKg.value) {
     return `To reach a healthy BMI, you need to ${direction} ${absKg} kg.`
   }
-  const absLbs = Math.round(absKg * 2.20462 * 10) / 10
+  const absLbs = convert(absKg)
   return `To reach a healthy BMI, you need to ${direction} ${absLbs} lbs (${absKg} kg).`
 })
 
@@ -163,8 +155,8 @@ const healthyRangeText = computed(() => {
   if (isKg.value) {
     return `Healthy weight at your height: ${range.minKg}–${range.maxKg} kg`
   }
-  const minLbs = Math.round(range.minKg * 2.20462 * 10) / 10
-  const maxLbs = Math.round(range.maxKg * 2.20462 * 10) / 10
+  const minLbs = convert(range.minKg)
+  const maxLbs = convert(range.maxKg)
   return `Healthy weight at your height: ${minLbs}–${maxLbs} lbs (${range.minKg}–${range.maxKg} kg)`
 })
 
@@ -497,29 +489,20 @@ const weightUnitLabel = computed(() => isKg.value ? 'kg' : 'lbs')
                   </thead>
                   <tbody>
                     <tr
-                      v-for="(row, i) in [
-                        { label: 'Severely Underweight', range: '< 16.0', color: 'text-blue-600' },
-                        { label: 'Moderately Underweight', range: '16.0–17.0', color: 'text-blue-500' },
-                        { label: 'Mildly Underweight', range: '17.0–18.5', color: 'text-sky-500' },
-                        { label: 'Normal Weight', range: '18.5–25.0', color: 'text-green-600' },
-                        { label: 'Overweight', range: '25.0–30.0', color: 'text-yellow-600' },
-                        { label: 'Obese Class I', range: '30.0–35.0', color: 'text-orange-500' },
-                        { label: 'Obese Class II', range: '35.0–40.0', color: 'text-orange-600' },
-                        { label: 'Obese Class III', range: '≥ 40.0', color: 'text-red-600' },
-                      ]"
-                      :key="i"
+                      v-for="cat in BMI_CATEGORIES"
+                      :key="cat.label"
                       class="border-b last:border-0"
-                      :class="store.bmiCategory?.label === row.label ? 'bg-primary/5 font-semibold' : ''"
+                      :class="store.bmiCategory?.label === cat.label ? 'bg-primary/5 font-semibold' : ''"
                     >
                       <td class="px-3 py-1.5">
                         <span class="flex items-center gap-1.5">
                           <span
                             class="inline-block h-2 w-2 rounded-full"
-                            :class="row.color.replace('text-', 'bg-')"
+                            :class="cat.bgColorClass"
                           />
-                          {{ row.label }}
+                          {{ cat.label }}
                           <Badge
-                            v-if="store.bmiCategory?.label === row.label"
+                            v-if="store.bmiCategory?.label === cat.label"
                             variant="outline"
                             class="ml-1 px-1 py-0 text-[10px]"
                           >
@@ -527,7 +510,7 @@ const weightUnitLabel = computed(() => isKg.value ? 'kg' : 'lbs')
                           </Badge>
                         </span>
                       </td>
-                      <td :class="['px-3 py-1.5', row.color]">{{ row.range }}</td>
+                      <td :class="['px-3 py-1.5', cat.textColorClass]">{{ cat.range }}</td>
                     </tr>
                   </tbody>
                 </table>

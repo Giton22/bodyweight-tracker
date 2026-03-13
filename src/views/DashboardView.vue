@@ -25,6 +25,7 @@ function goToSlide(index: number) {
 </script>
 
 <template>
+  <div>
   <!-- Mobile: swipeable slides (hidden on lg+) -->
   <div class="lg:hidden">
     <Swiper
@@ -64,5 +65,6 @@ function goToSlide(index: number) {
   <div class="mx-auto hidden max-w-[1600px] gap-6 px-6 py-6 lg:grid lg:grid-cols-2">
     <WeightSection />
     <KcalSection />
+  </div>
   </div>
 </template>
