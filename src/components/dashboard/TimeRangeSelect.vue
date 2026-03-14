@@ -20,13 +20,12 @@ const currentValue = computed(() =>
   props.target === 'weight' ? store.weightTimeRange : store.calorieTimeRange,
 )
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// oxlint-disable-next-line @typescript-eslint/no-explicit-any
 function onValueChange(value: any) {
   const range = Number(value) as TimeRange
   if (props.target === 'weight') {
     store.setWeightTimeRange(range)
-  }
-  else {
+  } else {
     store.setCalorieTimeRange(range)
   }
 }
@@ -40,7 +39,7 @@ function rangeLabel(days: TimeRange): string {
   return `${fmt.format(start)} – ${fmt.format(end)}`
 }
 
-const options: { value: TimeRange; label: string }[] = [7, 30, 60, 90].map(d => ({
+const options: { value: TimeRange; label: string }[] = [7, 30, 60, 90].map((d) => ({
   value: d as TimeRange,
   label: rangeLabel(d as TimeRange),
 }))
