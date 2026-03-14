@@ -30,8 +30,16 @@ function logout() {
         <h1 class="text-lg font-semibold text-primary">Bodyweight Tracker</h1>
       </RouterLink>
       <nav v-if="auth.isAuthenticated" class="ml-6 hidden sm:flex items-center gap-4">
-        <RouterLink to="/" class="nav-link text-sm text-muted-foreground hover:text-foreground transition-colors relative">Dashboard</RouterLink>
-        <RouterLink to="/groups" class="nav-link text-sm text-muted-foreground hover:text-foreground transition-colors relative">Groups</RouterLink>
+        <RouterLink
+          to="/"
+          class="nav-link text-sm text-muted-foreground hover:text-foreground transition-colors relative"
+          >Dashboard</RouterLink
+        >
+        <RouterLink
+          to="/groups"
+          class="nav-link text-sm text-muted-foreground hover:text-foreground transition-colors relative"
+          >Groups</RouterLink
+        >
       </nav>
       <div class="flex items-center gap-2 ml-auto">
         <ModeToggle />
@@ -45,7 +53,9 @@ function logout() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel class="font-normal">
               <p class="text-xs text-muted-foreground">Signed in as</p>
-              <p class="truncate text-sm font-medium">{{ auth.currentUser?.name || auth.currentUser?.email }}</p>
+              <p class="truncate text-sm font-medium">
+                {{ auth.currentUser?.name || auth.currentUser?.email }}
+              </p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem class="sm:hidden" @click="router.push('/')">

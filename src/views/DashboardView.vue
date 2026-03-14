@@ -26,45 +26,47 @@ function goToSlide(index: number) {
 
 <template>
   <div>
-  <!-- Mobile: swipeable slides (hidden on lg+) -->
-  <div class="lg:hidden">
-    <Swiper
-      :modules="[A11y]"
-      :slides-per-view="1"
-      :space-between="0"
-      class="dashboard-swiper"
-      @swiper="onSwiper"
-      @slide-change="onSlideChange"
-    >
-      <SwiperSlide>
-        <div class="px-4 pb-16 pt-6 sm:px-6">
-          <WeightSection />
-        </div>
-      </SwiperSlide>
-      <SwiperSlide>
-        <div class="px-4 pb-16 pt-6 sm:px-6">
-          <KcalSection />
-        </div>
-      </SwiperSlide>
-    </Swiper>
+    <!-- Mobile: swipeable slides (hidden on lg+) -->
+    <div class="lg:hidden">
+      <Swiper
+        :modules="[A11y]"
+        :slides-per-view="1"
+        :space-between="0"
+        class="dashboard-swiper"
+        @swiper="onSwiper"
+        @slide-change="onSlideChange"
+      >
+        <SwiperSlide>
+          <div class="px-4 pb-16 pt-6 sm:px-6">
+            <WeightSection />
+          </div>
+        </SwiperSlide>
+        <SwiperSlide>
+          <div class="px-4 pb-16 pt-6 sm:px-6">
+            <KcalSection />
+          </div>
+        </SwiperSlide>
+      </Swiper>
 
-    <!-- Fixed dot indicator — always visible at bottom of screen -->
-    <div class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-2 pb-safe py-3 lg:hidden bg-background/70 backdrop-blur-md border-t border-border/30">
-      <button
-        v-for="(_, i) in 2"
-        :key="i"
-        class="dashboard-dot"
-        :class="{ 'dashboard-dot--active': activeIndex === i }"
-        :aria-label="`Go to ${i === 0 ? 'Weight' : 'Calories'} section`"
-        @click="goToSlide(i)"
-      />
+      <!-- Fixed dot indicator — always visible at bottom of screen -->
+      <div
+        class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-2 pb-safe py-3 lg:hidden bg-background/70 backdrop-blur-md border-t border-border/30"
+      >
+        <button
+          v-for="(_, i) in 2"
+          :key="i"
+          class="dashboard-dot"
+          :class="{ 'dashboard-dot--active': activeIndex === i }"
+          :aria-label="`Go to ${i === 0 ? 'Weight' : 'Calories'} section`"
+          @click="goToSlide(i)"
+        />
+      </div>
     </div>
-  </div>
 
-  <!-- Desktop: side-by-side 50/50 layout (hidden below lg) -->
-  <div class="mx-auto hidden max-w-[1600px] gap-6 px-6 py-6 lg:grid lg:grid-cols-2">
-    <WeightSection />
-    <KcalSection />
-  </div>
+    <!-- Desktop: side-by-side 50/50 layout (hidden below lg) -->
+    <div class="mx-auto hidden max-w-[1600px] gap-6 px-6 py-6 lg:grid lg:grid-cols-2">
+      <WeightSection />
+      <KcalSection />
+    </div>
   </div>
 </template>

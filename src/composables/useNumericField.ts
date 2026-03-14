@@ -35,13 +35,13 @@ export function useNumericField(options: NumericFieldOptions = {}): NumericField
 
   const isInvalid = computed(() => error.value !== '')
 
-  const inputAttrs = computed(() => ({
-    ...(isInvalid.value ? { 'aria-invalid': true } : {}),
-  }))
+  const inputAttrs = computed(() => (isInvalid.value ? { 'aria-invalid': true } : {}))
 
   function triggerShake() {
     shaking.value = true
-    setTimeout(() => { shaking.value = false }, 400)
+    setTimeout(() => {
+      shaking.value = false
+    }, 400)
   }
 
   function validate(): boolean {

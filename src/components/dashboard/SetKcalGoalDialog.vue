@@ -53,7 +53,11 @@ async function submit() {
     <DialogTrigger as-child>
       <Button variant="outline" size="sm">
         <Icon icon="lucide:target" class="mr-2 h-4 w-4" />
-        {{ store.currentGlobalKcalGoal !== null ? `Goal: ${store.currentGlobalKcalGoal} kcal` : 'Set Kcal Goal' }}
+        {{
+          store.currentGlobalKcalGoal !== null
+            ? `Goal: ${store.currentGlobalKcalGoal} kcal`
+            : 'Set Kcal Goal'
+        }}
       </Button>
     </DialogTrigger>
     <DialogContent class="sm:max-w-[425px]">
@@ -63,8 +67,8 @@ async function submit() {
           Set Daily Kcal Goal
         </DialogTitle>
         <DialogDescription>
-          This goal applies from today forward. Previous days keep their existing goals.
-          You can override individual days from the table.
+          This goal applies from today forward. Previous days keep their existing goals. You can
+          override individual days from the table.
         </DialogDescription>
       </DialogHeader>
       <form class="grid gap-4 py-4" @submit.prevent="submit">

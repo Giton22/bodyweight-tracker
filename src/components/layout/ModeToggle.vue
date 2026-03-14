@@ -42,10 +42,7 @@ const { theme, setTheme } = useTheme()
         <Icon icon="lucide:moon" class="mr-2 h-4 w-4" />
         Dark
       </DropdownMenuItem>
-      <DropdownMenuItem
-        :class="theme === 'system' ? 'bg-accent' : ''"
-        @click="setTheme('system')"
-      >
+      <DropdownMenuItem :class="theme === 'system' ? 'bg-accent' : ''" @click="setTheme('system')">
         <Icon icon="lucide:monitor" class="mr-2 h-4 w-4" />
         System
       </DropdownMenuItem>

@@ -30,7 +30,7 @@ const data = computed(() => store.calorieChartData as ChartDatum[])
 // Use index as X so each data point gets exactly one tick — no repeated date labels
 const x = (_d: ChartDatum, i: number) => i
 
-const yConsumed = (d: ChartDatum) => d.hasConsumed ? d.consumed : 0
+const yConsumed = (d: ChartDatum) => (d.hasConsumed ? d.consumed : 0)
 
 const barColor = (d: ChartDatum) => {
   if (!d.hasConsumed) return 'var(--muted)'
@@ -60,14 +60,17 @@ const numTicks = computed(() => Math.min(data.value.length, 12))
 
 const domainY = computed((): [number, number] => {
   if (data.value.length === 0) return [0, 3000]
-  const values = data.value.filter(d => d.hasConsumed).map(d => d.consumed)
+  const values = data.value.filter((d) => d.hasConsumed).map((d) => d.consumed)
   if (values.length === 0) return [0, 3000]
   return [0, Math.max(...values) * 1.15]
 })
 </script>
 
 <template>
-  <div v-if="data.length === 0" class="flex h-[280px] flex-col items-center justify-center gap-2 text-center">
+  <div
+    v-if="data.length === 0"
+    class="flex h-[280px] flex-col items-center justify-center gap-2 text-center"
+  >
     <Icon icon="lucide:bar-chart-3" class="h-12 w-12 text-muted-foreground/25 animate-gentle-bob" />
     <p class="text-sm font-medium text-foreground/70">No calorie data in this range</p>
     <p class="text-xs text-muted-foreground">Log your first calories to see your chart</p>
@@ -81,20 +84,15 @@ const domainY = computed((): [number, number] => {
         :bar-padding="0.3"
         :rounded-corners="4"
       />
-      <VisAxis
-        type="x"
-        :tick-format="xTickFormat"
-        :num-ticks="numTicks"
-        label=""
-      />
-      <VisAxis
-        type="y"
-        :tick-format="(v: number) => `${v} kcal`"
-        :num-ticks="5"
-        label=""
-      />
+      <VisAxis type="x" :tick-format="xTickFormat" :num-ticks="numTicks" label="" />
+      <VisAxis type="y" :tick-format="(v: number) => `${v} kcal`" :num-ticks="5" label="" />
       <VisCrosshair
-        :template="(d: ChartDatum) => d ? `${formatDateCompact(d.date)}: ${d.hasConsumed ? d.consumed + ' kcal' : 'No data'}` : ''"
+        :template="
+          (d: ChartDatum) =>
+            d
+              ? `${formatDateCompact(d.date)}: ${d.hasConsumed ? d.consumed + ' kcal' : 'No data'}`
+              : ''
+        "
         color="var(--chart-2)"
       />
       <VisTooltip>

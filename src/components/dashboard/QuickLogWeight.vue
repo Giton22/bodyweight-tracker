@@ -15,9 +15,7 @@ const store = useWeightStore()
 const { convert, isKg, format, toKg } = useUnits()
 const todayRef = useToday()
 
-const todayEntry = computed(() =>
-  store.sortedEntries.find(e => e.date === todayRef.value),
-)
+const todayEntry = computed(() => store.sortedEntries.find((e) => e.date === todayRef.value))
 
 const editing = ref(false)
 const saving = ref(false)
@@ -61,9 +59,7 @@ function cancel() {
 <template>
   <Card class="bg-primary/5 border-primary/20">
     <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle class="text-sm font-medium text-muted-foreground">
-        Today's Weight
-      </CardTitle>
+      <CardTitle class="text-sm font-medium text-muted-foreground"> Today's Weight </CardTitle>
     </CardHeader>
     <CardContent>
       <template v-if="!editing">
@@ -92,12 +88,21 @@ function cancel() {
               v-bind="weightField.inputAttrs.value"
               :class="{ 'animate-shake': weightField.shaking.value }"
             />
-            <Button type="submit" size="sm" class="h-8" :disabled="!weightField.numericValue.value || saving">
-            <Icon :icon="saving ? 'lucide:loader-circle' : 'lucide:check'" class="h-4 w-4" :class="saving && 'animate-spin'" />
-          </Button>
-          <Button type="button" variant="ghost" size="sm" class="h-8" @click="cancel">
-            <Icon icon="lucide:x" class="h-4 w-4" />
-          </Button>
+            <Button
+              type="submit"
+              size="sm"
+              class="h-8"
+              :disabled="!weightField.numericValue.value || saving"
+            >
+              <Icon
+                :icon="saving ? 'lucide:loader-circle' : 'lucide:check'"
+                class="h-4 w-4"
+                :class="saving && 'animate-spin'"
+              />
+            </Button>
+            <Button type="button" variant="ghost" size="sm" class="h-8" @click="cancel">
+              <Icon icon="lucide:x" class="h-4 w-4" />
+            </Button>
           </div>
           <p v-if="weightField.error.value" class="text-xs text-destructive">
             {{ weightField.error.value }}

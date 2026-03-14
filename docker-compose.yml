@@ -4,7 +4,7 @@ services:
     container_name: bodyweight-tracker
     restart: unless-stopped
     ports:
-      - "8090:8090"
+      - '8090:8090'
     environment:
       # Auto-create the PocketBase admin account on first boot.
       # The superuser upsert command is idempotent — safe to leave set after first run.
@@ -13,14 +13,14 @@ services:
     volumes:
       - pb_data:/pb/pb_data
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8090/api/health"]
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8090/api/health']
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
     labels:
       # Watchtower — auto-update this container when a new image is published
-      - "com.centurylinklabs.watchtower.enable=true"
+      - 'com.centurylinklabs.watchtower.enable=true'
 
 volumes:
   pb_data:

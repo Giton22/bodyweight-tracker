@@ -1,9 +1,24 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { toast } from 'vue-sonner'
-import type { CalorieEntry, DailyCalorieRow, GoalDirection, KcalGoalChange, Sex, TimeRange, UserSettings, WeightEntry } from '@/types'
+import type {
+  CalorieEntry,
+  DailyCalorieRow,
+  GoalDirection,
+  KcalGoalChange,
+  Sex,
+  TimeRange,
+  UserSettings,
+  WeightEntry,
+} from '@/types'
 import { pb, COLLECTIONS } from '@/lib/pocketbase'
-import type { WeightEntryRecord, CalorieEntryRecord, KcalGoalChangeRecord, UserSettingsRecord, GoalRecord } from '@/lib/pocketbase'
+import type {
+  WeightEntryRecord,
+  CalorieEntryRecord,
+  KcalGoalChangeRecord,
+  UserSettingsRecord,
+  GoalRecord,
+} from '@/lib/pocketbase'
 import { todayISO } from '@/lib/date'
 import { today } from '@/composables/useToday'
 import { getBmiCategory } from '@/composables/useBmi'
@@ -108,16 +123,24 @@ export const useWeightStore = defineStore('weight', () => {
       if (!userId) return
 
       const userFilter = pb.filter('user = {:userId}', { userId })
-      const dateBoundFilter = pb.filter(
-        'user = {:userId} && date >= {:cutoff}',
-        { userId, cutoff: cutoffISO(365) },
-      )
+      const dateBoundFilter = pb.filter('user = {:userId} && date >= {:cutoff}', {
+        userId,
+        cutoff: cutoffISO(365),
+      })
 
       const [weightRecords, calorieRecords, kcalGoalRecords, settingsRecords] = await Promise.all([
-        pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).getFullList({ filter: dateBoundFilter, sort: 'date' }),
-        pb.collection<CalorieEntryRecord>(COLLECTIONS.CALORIE_ENTRIES).getFullList({ filter: dateBoundFilter, sort: 'date' }),
-        pb.collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY).getFullList({ filter: userFilter, sort: 'effective_from' }),
-        pb.collection<UserSettingsRecord>(COLLECTIONS.USER_SETTINGS).getFullList({ filter: userFilter }),
+        pb
+          .collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES)
+          .getFullList({ filter: dateBoundFilter, sort: 'date' }),
+        pb
+          .collection<CalorieEntryRecord>(COLLECTIONS.CALORIE_ENTRIES)
+          .getFullList({ filter: dateBoundFilter, sort: 'date' }),
+        pb
+          .collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY)
+          .getFullList({ filter: userFilter, sort: 'effective_from' }),
+        pb
+          .collection<UserSettingsRecord>(COLLECTIONS.USER_SETTINGS)
+          .getFullList({ filter: userFilter }),
       ])
 
       entries.value = weightRecords.map(toWeightEntry)
@@ -131,8 +154,7 @@ export const useWeightStore = defineStore('weight', () => {
       }
 
       isSynced.value = true
-    }
-    finally {
+    } finally {
       isLoading.value = false
     }
   }
@@ -145,62 +167,72 @@ export const useWeightStore = defineStore('weight', () => {
 
     const filter = pb.filter('user = {:userId}', { userId })
 
-    pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).subscribe('*', (e) => {
-      if (e.action === 'create') {
-        // Skip if already present (optimistic insert or duplicate event)
-        if (!entries.value.some(x => x.id === e.record.id))
-          entries.value.push(toWeightEntry(e.record))
-      }
-      else if (e.action === 'update') {
-        const idx = entries.value.findIndex(x => x.id === e.record.id)
-        if (idx !== -1) entries.value[idx] = toWeightEntry(e.record)
-      }
-      else if (e.action === 'delete') {
-        entries.value = entries.value.filter(x => x.id !== e.record.id)
-      }
-    }, { filter })
+    void pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).subscribe(
+      '*',
+      (e) => {
+        if (e.action === 'create') {
+          // Skip if already present (optimistic insert or duplicate event)
+          if (!entries.value.some((x) => x.id === e.record.id))
+            entries.value.push(toWeightEntry(e.record))
+        } else if (e.action === 'update') {
+          const idx = entries.value.findIndex((x) => x.id === e.record.id)
+          if (idx !== -1) entries.value[idx] = toWeightEntry(e.record)
+        } else if (e.action === 'delete') {
+          entries.value = entries.value.filter((x) => x.id !== e.record.id)
+        }
+      },
+      { filter },
+    )
 
-    pb.collection<CalorieEntryRecord>(COLLECTIONS.CALORIE_ENTRIES).subscribe('*', (e) => {
-      if (e.action === 'create') {
-        if (!calorieEntries.value.some(x => x.id === e.record.id))
-          calorieEntries.value.push(toCalorieEntry(e.record))
-      }
-      else if (e.action === 'update') {
-        const idx = calorieEntries.value.findIndex(x => x.id === e.record.id)
-        if (idx !== -1) calorieEntries.value[idx] = toCalorieEntry(e.record)
-      }
-      else if (e.action === 'delete') {
-        calorieEntries.value = calorieEntries.value.filter(x => x.id !== e.record.id)
-      }
-    }, { filter })
+    void pb.collection<CalorieEntryRecord>(COLLECTIONS.CALORIE_ENTRIES).subscribe(
+      '*',
+      (e) => {
+        if (e.action === 'create') {
+          if (!calorieEntries.value.some((x) => x.id === e.record.id))
+            calorieEntries.value.push(toCalorieEntry(e.record))
+        } else if (e.action === 'update') {
+          const idx = calorieEntries.value.findIndex((x) => x.id === e.record.id)
+          if (idx !== -1) calorieEntries.value[idx] = toCalorieEntry(e.record)
+        } else if (e.action === 'delete') {
+          calorieEntries.value = calorieEntries.value.filter((x) => x.id !== e.record.id)
+        }
+      },
+      { filter },
+    )
 
-    pb.collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY).subscribe('*', (e) => {
-      if (e.action === 'create') {
-        if (!kcalGoalHistory.value.some(x => x.id === e.record.id))
-          kcalGoalHistory.value.push(toKcalGoalChange(e.record))
-      }
-      else if (e.action === 'update') {
-        const idx = kcalGoalHistory.value.findIndex(x => x.id === e.record.id)
-        if (idx !== -1) kcalGoalHistory.value[idx] = toKcalGoalChange(e.record)
-      }
-      else if (e.action === 'delete') {
-        kcalGoalHistory.value = kcalGoalHistory.value.filter(x => x.id !== e.record.id)
-      }
-    }, { filter })
+    void pb.collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY).subscribe(
+      '*',
+      (e) => {
+        if (e.action === 'create') {
+          if (!kcalGoalHistory.value.some((x) => x.id === e.record.id))
+            kcalGoalHistory.value.push(toKcalGoalChange(e.record))
+        } else if (e.action === 'update') {
+          const idx = kcalGoalHistory.value.findIndex((x) => x.id === e.record.id)
+          if (idx !== -1) kcalGoalHistory.value[idx] = toKcalGoalChange(e.record)
+        } else if (e.action === 'delete') {
+          kcalGoalHistory.value = kcalGoalHistory.value.filter((x) => x.id !== e.record.id)
+        }
+      },
+      { filter },
+    )
 
-    pb.collection<UserSettingsRecord>(COLLECTIONS.USER_SETTINGS).subscribe('*', (e) => {
-      if (e.action === 'update' || e.action === 'create') {
-        settings.value = toUserSettings(e.record)
-        settingsRecordId.value = e.record.id
-      }
-    }, { filter })
+    void pb.collection<UserSettingsRecord>(COLLECTIONS.USER_SETTINGS).subscribe(
+      '*',
+      (e) => {
+        if (e.action === 'update' || e.action === 'create') {
+          settings.value = toUserSettings(e.record)
+          settingsRecordId.value = e.record.id
+        }
+      },
+      { filter },
+    )
   }
 
   function unsubscribeRealtime() {
-    pb.collection(COLLECTIONS.WEIGHT_ENTRIES).unsubscribe('*')
-    pb.collection(COLLECTIONS.CALORIE_ENTRIES).unsubscribe('*')
-    pb.collection(COLLECTIONS.KCAL_GOAL_HISTORY).unsubscribe('*')
-    pb.collection(COLLECTIONS.USER_SETTINGS).unsubscribe('*')
+    void pb.collection(COLLECTIONS.WEIGHT_ENTRIES).unsubscribe('*')
+    void pb.collection(COLLECTIONS.CALORIE_ENTRIES).unsubscribe('*')
+    void pb.collection(COLLECTIONS.KCAL_GOAL_HISTORY).unsubscribe('*')
+    void pb.collection(COLLECTIONS.USER_SETTINGS).unsubscribe('*')
   }
 
   function reset() {
@@ -208,7 +240,13 @@ export const useWeightStore = defineStore('weight', () => {
     entries.value = []
     calorieEntries.value = []
     kcalGoalHistory.value = []
-    settings.value = { unit: 'kg', goalWeightKg: 75, heightCm: 178, dateOfBirth: undefined, sex: undefined }
+    settings.value = {
+      unit: 'kg',
+      goalWeightKg: 75,
+      heightCm: 178,
+      dateOfBirth: undefined,
+      sex: undefined,
+    }
     settingsRecordId.value = null
     isSynced.value = false
   }
@@ -222,7 +260,7 @@ export const useWeightStore = defineStore('weight', () => {
     const next = { ...settings.value, ...patch }
     settings.value = next
 
-    const     payload = {
+    const payload = {
       user: userId,
       unit: next.unit,
       goal_weight_kg: next.goalWeightKg,
@@ -234,8 +272,7 @@ export const useWeightStore = defineStore('weight', () => {
 
     if (settingsRecordId.value) {
       await pb.collection(COLLECTIONS.USER_SETTINGS).update(settingsRecordId.value, payload)
-    }
-    else {
+    } else {
       const rec = await pb.collection<UserSettingsRecord>(COLLECTIONS.USER_SETTINGS).create(payload)
       settingsRecordId.value = rec.id
     }
@@ -244,7 +281,12 @@ export const useWeightStore = defineStore('weight', () => {
     const sorted = [...entries.value].sort((a, b) => a.date.localeCompare(b.date))
     const latestWeight = sorted.at(-1)?.weightKg
     if (next.goalWeightKg && latestWeight) {
-      useGroupsStore().syncWeightGoal(latestWeight, next.goalWeightKg, next.unit, next.goalDirection)
+      void useGroupsStore().syncWeightGoal(
+        latestWeight,
+        next.goalWeightKg,
+        next.unit,
+        next.goalDirection,
+      )
     }
   }
 
@@ -256,16 +298,12 @@ export const useWeightStore = defineStore('weight', () => {
 
   const filteredEntries = computed(() => {
     const cutoffStr = cutoffISO(weightTimeRange.value)
-    return sortedEntries.value.filter(e => e.date >= cutoffStr)
+    return sortedEntries.value.filter((e) => e.date >= cutoffStr)
   })
 
-  const latestEntry = computed(() =>
-    sortedEntries.value.at(-1),
-  )
+  const latestEntry = computed(() => sortedEntries.value.at(-1))
 
-  const currentWeight = computed(() =>
-    latestEntry.value?.weightKg ?? null,
-  )
+  const currentWeight = computed(() => latestEntry.value?.weightKg ?? null)
 
   const bmi = computed(() => {
     if (!currentWeight.value || !settings.value.heightCm) return null
@@ -328,15 +366,14 @@ export const useWeightStore = defineStore('weight', () => {
 
     const groups = new Map<string, WeightEntry[]>()
     for (const entry of data) {
-      const key = averageMode.value === 'weekly'
-        ? getISOWeekKey(entry.date)
-        : entry.date.slice(0, 7) // YYYY-MM
+      const key =
+        averageMode.value === 'weekly' ? getISOWeekKey(entry.date) : entry.date.slice(0, 7) // YYYY-MM
       const group = groups.get(key) ?? []
       group.push(entry)
       groups.set(key, group)
     }
 
-    return [...groups.values()].map(group => {
+    return [...groups.values()].map((group) => {
       const avgKg = group.reduce((s, e) => s + e.weightKg, 0) / group.length
       return {
         id: group[group.length - 1]!.id,
@@ -348,7 +385,7 @@ export const useWeightStore = defineStore('weight', () => {
 
   const weeklyAverage = computed<{ avg: number; count: number } | null>(() => {
     const currentWeekKey = getISOWeekKey(today.value)
-    const weekEntries = sortedEntries.value.filter(e => getISOWeekKey(e.date) === currentWeekKey)
+    const weekEntries = sortedEntries.value.filter((e) => getISOWeekKey(e.date) === currentWeekKey)
     if (weekEntries.length === 0) return null
     const avg = weekEntries.reduce((s, e) => s + e.weightKg, 0) / weekEntries.length
     return { avg: Math.round(avg * 100) / 100, count: weekEntries.length }
@@ -356,14 +393,14 @@ export const useWeightStore = defineStore('weight', () => {
 
   const monthlyAverage = computed<{ avg: number; count: number } | null>(() => {
     const currentMonthKey = today.value.slice(0, 7)
-    const monthEntries = sortedEntries.value.filter(e => e.date.slice(0, 7) === currentMonthKey)
+    const monthEntries = sortedEntries.value.filter((e) => e.date.slice(0, 7) === currentMonthKey)
     if (monthEntries.length === 0) return null
     const avg = monthEntries.reduce((s, e) => s + e.weightKg, 0) / monthEntries.length
     return { avg: Math.round(avg * 100) / 100, count: monthEntries.length }
   })
 
   const chartData = computed(() =>
-    filteredEntries.value.map(e => ({
+    filteredEntries.value.map((e) => ({
       date: new Date(e.date).getTime(),
       weight: e.weightKg,
     })),
@@ -385,16 +422,18 @@ export const useWeightStore = defineStore('weight', () => {
     for (const change of sorted) {
       if (change.effectiveFrom <= date) {
         result = change.kcal
-      }
-      else {
+      } else {
         break
       }
     }
     return result
   }
 
-  function getEffectiveKcalGoal(date: string): { goal: number | null; source: 'global' | 'override' | 'none' } {
-    const entry = calorieEntries.value.find(e => e.date === date)
+  function getEffectiveKcalGoal(date: string): {
+    goal: number | null
+    source: 'global' | 'override' | 'none'
+  } {
+    const entry = calorieEntries.value.find((e) => e.date === date)
     if (entry?.goalOverrideKcal != null) {
       return { goal: entry.goalOverrideKcal, source: 'override' }
     }
@@ -412,7 +451,7 @@ export const useWeightStore = defineStore('weight', () => {
 
     // Only include entries within the time range, sorted oldest → newest
     const inRange = [...calorieEntries.value]
-      .filter(e => e.date >= cutoffStr)
+      .filter((e) => e.date >= cutoffStr)
       .sort((a, b) => a.date.localeCompare(b.date))
 
     return inRange.map((entry) => {
@@ -442,7 +481,7 @@ export const useWeightStore = defineStore('weight', () => {
   // ── Kcal chart data ──
 
   const calorieChartData = computed(() =>
-    dailyCalorieRows.value.map(row => ({
+    dailyCalorieRows.value.map((row) => ({
       date: new Date(row.date).getTime(),
       consumed: row.consumedKcal ?? 0,
       goal: row.goalKcal ?? 0,
@@ -455,14 +494,14 @@ export const useWeightStore = defineStore('weight', () => {
   // ── Kcal summary stats ──
 
   const todayCalorieSummary = computed(() => {
-    const row = dailyCalorieRows.value.find(r => r.date === today.value)
+    const row = dailyCalorieRows.value.find((r) => r.date === today.value)
     return row ?? null
   })
 
   const weeklyCalorieAverage = computed<number | null>(() => {
     const currentWeekKey = getISOWeekKey(today.value)
     const weekRows = dailyCalorieRows.value.filter(
-      r => r.consumedKcal !== null && getISOWeekKey(r.date) === currentWeekKey,
+      (r) => r.consumedKcal !== null && getISOWeekKey(r.date) === currentWeekKey,
     )
     if (weekRows.length === 0) return null
     const sum = weekRows.reduce((s, r) => s + r.consumedKcal!, 0)
@@ -475,17 +514,17 @@ export const useWeightStore = defineStore('weight', () => {
     const userId = pb.authStore.record?.id
     if (!userId) return
 
-    const existing = entries.value.find(e => e.date === entry.date)
+    const existing = entries.value.find((e) => e.date === entry.date)
 
     if (existing) {
       await pb.collection(COLLECTIONS.WEIGHT_ENTRIES).update(existing.id, {
         weight_kg: entry.weightKg,
         note: entry.note ?? '',
       })
-      const idx = entries.value.findIndex(e => e.id === existing.id)
-      if (idx !== -1) entries.value[idx] = { ...existing, weightKg: entry.weightKg, note: entry.note }
-    }
-    else {
+      const idx = entries.value.findIndex((e) => e.id === existing.id)
+      if (idx !== -1)
+        entries.value[idx] = { ...existing, weightKg: entry.weightKg, note: entry.note }
+    } else {
       try {
         const rec = await pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).create({
           user: userId,
@@ -493,23 +532,27 @@ export const useWeightStore = defineStore('weight', () => {
           weight_kg: entry.weightKg,
           note: entry.note ?? '',
         })
-        if (!entries.value.some(e => e.id === rec.id)) {
+        if (!entries.value.some((e) => e.id === rec.id)) {
           entries.value.push(toWeightEntry(rec))
         }
-      }
-      catch {
+      } catch {
         toast.error('Failed to save weight entry. Please try again.')
       }
     }
 
     // Sync weight goal for groups
     if (settings.value.goalWeightKg) {
-      useGroupsStore().syncWeightGoal(entry.weightKg, settings.value.goalWeightKg, settings.value.unit, settings.value.goalDirection)
+      void useGroupsStore().syncWeightGoal(
+        entry.weightKg,
+        settings.value.goalWeightKg,
+        settings.value.unit,
+        settings.value.goalDirection,
+      )
     }
   }
 
   async function updateEntry(id: string, patch: Partial<Pick<WeightEntry, 'weightKg' | 'note'>>) {
-    const existing = entries.value.find(e => e.id === id)
+    const existing = entries.value.find((e) => e.id === id)
     if (!existing) return
 
     const payload: Record<string, unknown> = {}
@@ -517,17 +560,17 @@ export const useWeightStore = defineStore('weight', () => {
     if (patch.note !== undefined) payload.note = patch.note ?? ''
 
     await pb.collection(COLLECTIONS.WEIGHT_ENTRIES).update(id, payload)
-    const idx = entries.value.findIndex(e => e.id === id)
+    const idx = entries.value.findIndex((e) => e.id === id)
     if (idx !== -1) entries.value[idx] = { ...existing, ...patch }
   }
 
   async function deleteEntry(id: string) {
     await pb.collection(COLLECTIONS.WEIGHT_ENTRIES).delete(id)
-    entries.value = entries.value.filter(e => e.id !== id)
+    entries.value = entries.value.filter((e) => e.id !== id)
   }
 
   function setUnit(unit: 'kg' | 'lbs') {
-    persistSettings({ unit })
+    void persistSettings({ unit })
   }
 
   function setWeightTimeRange(range: TimeRange) {
@@ -551,36 +594,39 @@ export const useWeightStore = defineStore('weight', () => {
     const today = todayISO()
 
     // Check if a goal change for today already exists
-    const existing = kcalGoalHistory.value.find(g => g.effectiveFrom === today)
+    const existing = kcalGoalHistory.value.find((g) => g.effectiveFrom === today)
     if (existing) {
       // Update existing
       await pb.collection(COLLECTIONS.KCAL_GOAL_HISTORY).update(existing.id, { kcal })
-      kcalGoalHistory.value = kcalGoalHistory.value.map(g =>
+      kcalGoalHistory.value = kcalGoalHistory.value.map((g) =>
         g.effectiveFrom === today ? { ...g, kcal } : g,
       )
-    }
-    else {
+    } else {
       try {
-        const rec = await pb.collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY).create({
-          user: userId,
-          effective_from: today,
-          kcal,
-        })
-        if (!kcalGoalHistory.value.some(g => g.id === rec.id)) {
+        const rec = await pb
+          .collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY)
+          .create({
+            user: userId,
+            effective_from: today,
+            kcal,
+          })
+        if (!kcalGoalHistory.value.some((g) => g.id === rec.id)) {
           kcalGoalHistory.value.push(toKcalGoalChange(rec))
         }
-      }
-      catch {
+      } catch {
         toast.error('Failed to set calorie goal. Please try again.')
       }
     }
   }
 
-  async function upsertCalorieEntry(date: string, patch: Partial<Pick<CalorieEntry, 'calories' | 'goalOverrideKcal' | 'note'>>) {
+  async function upsertCalorieEntry(
+    date: string,
+    patch: Partial<Pick<CalorieEntry, 'calories' | 'goalOverrideKcal' | 'note'>>,
+  ) {
     const userId = pb.authStore.record?.id
     if (!userId) return
 
-    const existing = calorieEntries.value.find(e => e.date === date)
+    const existing = calorieEntries.value.find((e) => e.date === date)
 
     if (existing) {
       const updated = { ...existing, ...patch }
@@ -589,10 +635,9 @@ export const useWeightStore = defineStore('weight', () => {
         goal_override_kcal: updated.goalOverrideKcal ?? null,
         note: updated.note ?? '',
       })
-      const idx = calorieEntries.value.findIndex(e => e.date === date)
+      const idx = calorieEntries.value.findIndex((e) => e.date === date)
       if (idx !== -1) calorieEntries.value[idx] = updated
-    }
-    else {
+    } else {
       try {
         const newEntry = { date, calories: null, ...patch }
         const rec = await pb.collection<CalorieEntryRecord>(COLLECTIONS.CALORIE_ENTRIES).create({
@@ -602,11 +647,10 @@ export const useWeightStore = defineStore('weight', () => {
           goal_override_kcal: newEntry.goalOverrideKcal ?? null,
           note: newEntry.note ?? '',
         })
-        if (!calorieEntries.value.some(e => e.id === rec.id)) {
+        if (!calorieEntries.value.some((e) => e.id === rec.id)) {
           calorieEntries.value.push(toCalorieEntry(rec))
         }
-      }
-      catch {
+      } catch {
         toast.error('Failed to save calorie entry. Please try again.')
       }
     }
@@ -620,7 +664,12 @@ export const useWeightStore = defineStore('weight', () => {
     return upsertCalorieEntry(date, { goalOverrideKcal: kcal })
   }
 
-  async function saveDailyCalories(payload: { date: string; calories: number | null; goalOverrideKcal: number | null; note?: string }) {
+  async function saveDailyCalories(payload: {
+    date: string
+    calories: number | null
+    goalOverrideKcal: number | null
+    note?: string
+  }) {
     // Merge both fields in a single upsert to avoid two round-trips
     await upsertCalorieEntry(payload.date, {
       calories: payload.calories,
@@ -630,11 +679,11 @@ export const useWeightStore = defineStore('weight', () => {
   }
 
   async function deleteCalorieEntry(date: string) {
-    const entry = calorieEntries.value.find(e => e.date === date)
+    const entry = calorieEntries.value.find((e) => e.date === date)
     if (!entry) return
 
     await pb.collection(COLLECTIONS.CALORIE_ENTRIES).delete(entry.id)
-    calorieEntries.value = calorieEntries.value.filter(e => e.date !== date)
+    calorieEntries.value = calorieEntries.value.filter((e) => e.date !== date)
   }
 
   async function resetUserData() {
@@ -644,17 +693,27 @@ export const useWeightStore = defineStore('weight', () => {
     const userFilter = pb.filter('user = {:userId}', { userId })
 
     const [weightRecords, calorieRecords, kcalGoalRecords, goalRecords] = await Promise.all([
-      pb.collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES).getFullList({ filter: userFilter }),
-      pb.collection<CalorieEntryRecord>(COLLECTIONS.CALORIE_ENTRIES).getFullList({ filter: userFilter }),
-      pb.collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY).getFullList({ filter: userFilter }),
+      pb
+        .collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES)
+        .getFullList({ filter: userFilter }),
+      pb
+        .collection<CalorieEntryRecord>(COLLECTIONS.CALORIE_ENTRIES)
+        .getFullList({ filter: userFilter }),
+      pb
+        .collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY)
+        .getFullList({ filter: userFilter }),
       pb.collection<GoalRecord>(COLLECTIONS.GOALS).getFullList({ filter: userFilter }),
     ])
 
     await Promise.all([
-      ...weightRecords.map(record => pb.collection(COLLECTIONS.WEIGHT_ENTRIES).delete(record.id)),
-      ...calorieRecords.map(record => pb.collection(COLLECTIONS.CALORIE_ENTRIES).delete(record.id)),
-      ...kcalGoalRecords.map(record => pb.collection(COLLECTIONS.KCAL_GOAL_HISTORY).delete(record.id)),
-      ...goalRecords.map(record => pb.collection(COLLECTIONS.GOALS).delete(record.id)),
+      ...weightRecords.map((record) => pb.collection(COLLECTIONS.WEIGHT_ENTRIES).delete(record.id)),
+      ...calorieRecords.map((record) =>
+        pb.collection(COLLECTIONS.CALORIE_ENTRIES).delete(record.id),
+      ),
+      ...kcalGoalRecords.map((record) =>
+        pb.collection(COLLECTIONS.KCAL_GOAL_HISTORY).delete(record.id),
+      ),
+      ...goalRecords.map((record) => pb.collection(COLLECTIONS.GOALS).delete(record.id)),
     ])
 
     entries.value = []

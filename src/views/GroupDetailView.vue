@@ -64,7 +64,10 @@ async function handleLeave() {
 <template>
   <div class="mx-auto max-w-4xl px-4 py-6 sm:px-6 space-y-6">
     <!-- Loading -->
-    <div v-if="store.isLoading && !store.currentGroup" class="flex items-center justify-center py-12">
+    <div
+      v-if="store.isLoading && !store.currentGroup"
+      class="flex items-center justify-center py-12"
+    >
       <Icon icon="lucide:loader-2" class="h-6 w-6 animate-spin text-muted-foreground" />
     </div>
 
@@ -84,7 +87,9 @@ async function handleLeave() {
             </p>
           </div>
           <Badge variant="secondary" class="shrink-0">
-            {{ store.currentMembers.length }} member{{ store.currentMembers.length !== 1 ? 's' : '' }}
+            {{ store.currentMembers.length }} member{{
+              store.currentMembers.length !== 1 ? 's' : ''
+            }}
           </Badge>
         </div>
 

@@ -43,7 +43,13 @@ function readStoredTheme(defaultTheme: Theme): Theme {
 
 function readStoredColorTheme(defaultColorTheme: ColorTheme): ColorTheme {
   const storedColorTheme = localStorage.getItem(paletteStorageKey)
-  if (storedColorTheme === 'classic' || storedColorTheme === 'darcula' || storedColorTheme === 'nord' || storedColorTheme === 'solarized' || storedColorTheme === 'gruvbox') {
+  if (
+    storedColorTheme === 'classic' ||
+    storedColorTheme === 'darcula' ||
+    storedColorTheme === 'nord' ||
+    storedColorTheme === 'solarized' ||
+    storedColorTheme === 'gruvbox'
+  ) {
     return storedColorTheme
   }
 
@@ -79,15 +85,23 @@ export function initializeTheme({
   colorTheme.value = readStoredColorTheme(defaultColorTheme)
 
   if (!initialized) {
-    watch(theme, (value) => {
-      localStorage.setItem(modeStorageKey, value)
-      applyTheme(value)
-    }, { immediate: true })
+    watch(
+      theme,
+      (value) => {
+        localStorage.setItem(modeStorageKey, value)
+        applyTheme(value)
+      },
+      { immediate: true },
+    )
 
-    watch(colorTheme, (value) => {
-      localStorage.setItem(paletteStorageKey, value)
-      applyColorTheme(value)
-    }, { immediate: true })
+    watch(
+      colorTheme,
+      (value) => {
+        localStorage.setItem(paletteStorageKey, value)
+        applyColorTheme(value)
+      },
+      { immediate: true },
+    )
 
     mql.addEventListener('change', handleSystemThemeChange)
     initialized = true

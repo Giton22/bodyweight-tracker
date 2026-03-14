@@ -17,16 +17,18 @@ const email = ref('')
 const password = ref('')
 const passwordConfirm = ref('')
 
-const passwordMismatch = computed(() =>
-  mode.value === 'register'
-  && passwordConfirm.value.length > 0
-  && password.value !== passwordConfirm.value,
+const passwordMismatch = computed(
+  () =>
+    mode.value === 'register' &&
+    passwordConfirm.value.length > 0 &&
+    password.value !== passwordConfirm.value,
 )
 
-const registerValid = computed(() =>
-  email.value.trim().length > 0
-  && password.value.length >= 8
-  && password.value === passwordConfirm.value,
+const registerValid = computed(
+  () =>
+    email.value.trim().length > 0 &&
+    password.value.length >= 8 &&
+    password.value === passwordConfirm.value,
 )
 
 function switchMode() {
@@ -39,23 +41,25 @@ async function submit() {
     if (mode.value === 'login') {
       await auth.login(email.value, password.value)
       router.push('/')
-    }
-    else {
+    } else {
       await auth.register(email.value.trim(), password.value, displayName.value.trim() || undefined)
       router.push('/settings')
     }
-  }
-  catch {
+  } catch {
     // error is displayed via auth.error
   }
 }
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
+  <div
+    class="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4"
+  >
     <Card class="w-full max-w-sm shadow-warm-lg">
       <CardHeader class="text-center">
-        <div class="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+        <div
+          class="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10"
+        >
           <Icon icon="lucide:scale" class="h-6 w-6 text-primary" />
         </div>
         <CardTitle class="text-xl">
@@ -111,9 +115,7 @@ async function submit() {
               autocomplete="new-password"
               required
             />
-            <p v-if="passwordMismatch" class="text-xs text-destructive">
-              Passwords do not match.
-            </p>
+            <p v-if="passwordMismatch" class="text-xs text-destructive">Passwords do not match.</p>
           </div>
 
           <p v-if="auth.error" class="text-sm text-destructive">

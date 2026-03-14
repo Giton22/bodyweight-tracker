@@ -36,7 +36,9 @@ watch(
   ({ isOpen, row }) => {
     if (!isOpen || !row) return
     consumedField.reset(row.consumedKcal !== null ? row.consumedKcal : undefined)
-    overrideField.reset(row.goalSource === 'override' && row.goalKcal !== null ? row.goalKcal : undefined)
+    overrideField.reset(
+      row.goalSource === 'override' && row.goalKcal !== null ? row.goalKcal : undefined,
+    )
   },
   { immediate: true },
 )
@@ -45,7 +47,9 @@ const resolvedGlobalGoal = computed(() => {
   if (!props.row) return null
   return store.kcalGoalHistory.length > 0
     ? (() => {
-        const history = [...store.kcalGoalHistory].sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom))
+        const history = [...store.kcalGoalHistory].sort((a, b) =>
+          a.effectiveFrom.localeCompare(b.effectiveFrom),
+        )
         let result: number | null = null
         for (const change of history) {
           if (change.effectiveFrom <= props.row!.date) result = change.kcal
@@ -113,7 +117,9 @@ function resetOverride() {
         <div class="rounded-lg border border-border bg-muted/30 p-3 text-sm">
           <div class="flex items-center justify-between gap-3">
             <span class="text-muted-foreground">Global goal for this day</span>
-            <span class="font-medium">{{ resolvedGlobalGoal !== null ? `${resolvedGlobalGoal} kcal` : 'No global goal' }}</span>
+            <span class="font-medium">{{
+              resolvedGlobalGoal !== null ? `${resolvedGlobalGoal} kcal` : 'No global goal'
+            }}</span>
           </div>
         </div>
 
@@ -166,7 +172,9 @@ function resetOverride() {
 
         <div v-if="statusPreview" class="rounded-lg border border-border bg-background p-3 text-sm">
           <span class="text-muted-foreground">Preview:</span>
-          <span class="ml-2 font-medium" :class="statusPreview.textClass">{{ statusPreview.label }}</span>
+          <span class="ml-2 font-medium" :class="statusPreview.textClass">{{
+            statusPreview.label
+          }}</span>
         </div>
       </div>
 

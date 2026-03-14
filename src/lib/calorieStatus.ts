@@ -16,12 +16,15 @@ export interface CalorieStatus {
 function getTone(deviationPct: number): CalorieStatusTone {
   if (deviationPct === 0) return 'target'
   if (deviationPct <= 0.05) return 'near'
-  if (deviationPct <= 0.10) return 'mild'
-  if (deviationPct <= 0.20) return 'moderate'
+  if (deviationPct <= 0.1) return 'mild'
+  if (deviationPct <= 0.2) return 'moderate'
   return 'severe'
 }
 
-function getToneClasses(tone: CalorieStatusTone, isAlignedWithGoal: boolean): { badgeClass: string; textClass: string } {
+function getToneClasses(
+  tone: CalorieStatusTone,
+  isAlignedWithGoal: boolean,
+): { badgeClass: string; textClass: string } {
   if (tone === 'target') {
     return {
       badgeClass: 'border-transparent bg-emerald-500 text-white dark:bg-emerald-500/85',
@@ -131,8 +134,7 @@ export function getCalorieStatus(
   const deviationPct = Math.abs(delta) / goalKcal
   const tone = getTone(deviationPct)
   const direction = goalDirection ?? 'loss'
-  const isAlignedWithGoal = delta === 0
-    || (direction === 'loss' ? delta < 0 : delta > 0)
+  const isAlignedWithGoal = delta === 0 || (direction === 'loss' ? delta < 0 : delta > 0)
   const { badgeClass, textClass } = getToneClasses(tone, isAlignedWithGoal)
   const chartColor = getChartColor(tone, isAlignedWithGoal)
 

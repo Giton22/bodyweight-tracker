@@ -17,13 +17,14 @@
 }
 
 .dark {
-  --success: oklch(0.70 0.17 155);
+  --success: oklch(0.7 0.17 155);
   --success-foreground: oklch(0.15 0 0);
-  --warning: oklch(0.80 0.15 80);
+  --warning: oklch(0.8 0.15 80);
 }
 ```
 
 In `@theme inline`:
+
 ```css
 --color-success: var(--success);
 --color-success-foreground: var(--success-foreground);
@@ -88,6 +89,7 @@ This cuts vertical scrolling roughly in half on mobile.
 **Problem:** Views use different vertical padding (`py-6`, `py-8`) and the NotFoundView has none.
 
 **Solution:**
+
 - Standardize content views to `py-6 sm:py-8` (small padding on mobile, standard on desktop)
 - Add `py-6` to NotFoundView
 - Auth/Setup are intentionally different (full-screen centered) -- leave as-is
@@ -101,9 +103,11 @@ This cuts vertical scrolling roughly in half on mobile.
 **Problem:** `WeightChart.vue` and `KcalChart.vue` pass inline object/array literals as props (`:margin="{ ... }"`, `:y="[yConsumed]"`), creating new references on every render.
 
 **Solution:** Extract as `const` in `<script setup>`:
+
 ```ts
 const chartMargin = { top: 10, right: 10, bottom: 30, left: 45 }
 ```
+
 Then use `:margin="chartMargin"`.
 
 Files: `WeightChart.vue`, `KcalChart.vue` (5 inline literals total)
@@ -115,6 +119,7 @@ Files: `WeightChart.vue`, `KcalChart.vue` (5 inline literals total)
 **Problem:** 6 computed properties in `stores/weight.ts` and 1 in `QuickLogWeight.vue` call `todayISO()` which is not reactive. If the app stays open overnight, these go stale.
 
 **Solution:** Create `src/composables/useToday.ts`:
+
 ```ts
 import { ref, onUnmounted } from 'vue'
 import { todayISO } from '@/lib/date'
@@ -155,6 +160,7 @@ export { today }
 Then in the weight store, import the singleton `today` ref and use it in computed properties instead of calling `todayISO()`. Since the store doesn't have component lifecycle, the timer is started when any component calls `useToday()` (e.g., App.vue).
 
 **Files to update:**
+
 - `App.vue` -- call `useToday()` once to start the timer
 - `stores/weight.ts` -- replace `todayISO()` with `today.value` in 5 computed properties
 - `QuickLogWeight.vue` -- replace `todayISO()` in the `todayEntry` computed with `today.value`
@@ -166,6 +172,7 @@ Then in the weight store, import the singleton `today` ref and use it in compute
 **Problem:** `@tanstack/vue-table` is in `package.json` dependencies but `src/components/ui/table/utils.ts` (its only consumer) is never imported.
 
 **Solution:**
+
 - Delete `src/components/ui/table/utils.ts`
 - Run `bun remove @tanstack/vue-table`
 
@@ -203,24 +210,27 @@ const [weightRecords, calorieRecords, ...] = await Promise.all([
 
 ### Phase 5 Changes (Design Polish)
 
-| # | Task | Files | Impact |
-|---|------|-------|--------|
+| #   | Task                                      | Files                     | Impact                                       |
+| --- | ----------------------------------------- | ------------------------- | -------------------------------------------- |
 | 5.1 | Add semantic success/warning color tokens | `index.css` + 4 consumers | Theme-consistent colors, dark mode automatic |
-| 5.2 | Remove duplicate SetKcalGoalDialog | `KcalSection.vue` | Less confusing UI |
-| 5.3 | 2-column stat card grid on mobile | `WeightSection.vue` | ~50% less scrolling to reach chart |
-| 5.4 | Add hover state to RecentEntries rows | `RecentEntries.vue` | Better table scannability |
-| 5.5 | Standardize page layout padding | 2 view files | Visual consistency |
+| 5.2 | Remove duplicate SetKcalGoalDialog        | `KcalSection.vue`         | Less confusing UI                            |
+| 5.3 | 2-column stat card grid on mobile         | `WeightSection.vue`       | ~50% less scrolling to reach chart           |
+| 5.4 | Add hover state to RecentEntries rows     | `RecentEntries.vue`       | Better table scannability                    |
+| 5.5 | Standardize page layout padding           | 2 view files              | Visual consistency                           |
 
 ### Phase 6 Changes (Performance)
 
-| # | Task | Files | Impact |
-|---|------|-------|--------|
-| 6.1 | Extract inline chart object literals | `WeightChart.vue`, `KcalChart.vue` | Prevent unnecessary re-renders |
-| 6.2 | Reactive `today` ref for midnight rollover | 1 new composable + 3 consumers | 6 computed properties stay fresh |
-| 6.3 | Remove unused @tanstack/vue-table + dead utils | `package.json`, 1 deleted file | Smaller install, cleaner deps |
-| 6.4 | Bound initial data load to 365 days | `stores/weight.ts` | Faster startup, less memory for heavy users |
+| #   | Task                                           | Files                              | Impact                                      |
+| --- | ---------------------------------------------- | ---------------------------------- | ------------------------------------------- |
+| 6.1 | Extract inline chart object literals           | `WeightChart.vue`, `KcalChart.vue` | Prevent unnecessary re-renders              |
+| 6.2 | Reactive `today` ref for midnight rollover     | 1 new composable + 3 consumers     | 6 computed properties stay fresh            |
+| 6.3 | Remove unused @tanstack/vue-table + dead utils | `package.json`, 1 deleted file     | Smaller install, cleaner deps               |
+| 6.4 | Bound initial data load to 365 days            | `stores/weight.ts`                 | Faster startup, less memory for heavy users |
 
 ### New files: 1 (`src/composables/useToday.ts`)
+
 ### Deleted files: 1 (`src/components/ui/table/utils.ts`)
+
 ### Total files modified: ~12
+
 ### Dependencies removed: 1 (`@tanstack/vue-table`)

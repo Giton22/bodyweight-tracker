@@ -29,15 +29,13 @@ const note = ref('')
 const saving = ref(false)
 const weightInputRef = ref<InstanceType<typeof Input> | null>(null)
 
-const existingEntry = computed(() =>
-  store.sortedEntries.find(e => e.date === date.value),
-)
+const existingEntry = computed(() => store.sortedEntries.find((e) => e.date === date.value))
 
 const isUpdating = computed(() => !!existingEntry.value)
 
 // Pre-fill when date changes to a date with an existing entry
 watch(date, (newDate) => {
-  const existing = store.sortedEntries.find(e => e.date === newDate)
+  const existing = store.sortedEntries.find((e) => e.date === newDate)
   if (existing) {
     weightField.reset(Math.round(convert(existing.weightKg) * 10) / 10)
     note.value = existing.note ?? ''
@@ -49,7 +47,7 @@ watch(open, (isOpen) => {
   if (isOpen) {
     date.value = todayISO()
     // Pre-fill if today already has an entry
-    const existing = store.sortedEntries.find(e => e.date === date.value)
+    const existing = store.sortedEntries.find((e) => e.date === date.value)
     if (existing) {
       weightField.reset(Math.round(convert(existing.weightKg) * 10) / 10)
       note.value = existing.note ?? ''
@@ -99,15 +97,15 @@ async function submit() {
           <Icon icon="lucide:scale" class="h-5 w-5 text-primary" />
           Log Weight
         </DialogTitle>
-        <DialogDescription>{{ isUpdating ? 'Update an existing weight entry.' : 'Add a new weight entry.' }}</DialogDescription>
+        <DialogDescription>{{
+          isUpdating ? 'Update an existing weight entry.' : 'Add a new weight entry.'
+        }}</DialogDescription>
       </DialogHeader>
       <form class="grid gap-4 py-4" @submit.prevent="submit">
         <div class="grid gap-2">
           <Label for="date">Date</Label>
           <Input id="date" v-model="date" type="date" />
-          <p v-if="isUpdating" class="text-xs text-warning">
-            Updating existing entry
-          </p>
+          <p v-if="isUpdating" class="text-xs text-warning">Updating existing entry</p>
         </div>
         <div class="grid gap-2">
           <Label for="weight">Weight ({{ isKg ? 'kg' : 'lbs' }})</Label>

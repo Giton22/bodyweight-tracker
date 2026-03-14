@@ -60,7 +60,10 @@ function onJoined(groupId: string) {
         <CardHeader class="pb-2">
           <div class="flex items-start justify-between">
             <CardTitle class="text-base">{{ group.name }}</CardTitle>
-            <Icon icon="lucide:chevron-right" class="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+            <Icon
+              icon="lucide:chevron-right"
+              class="h-4 w-4 text-muted-foreground shrink-0 mt-0.5"
+            />
           </div>
         </CardHeader>
         <CardContent>

@@ -14,7 +14,7 @@ const GAUGE_MAX = 45
 const GAUGE_RANGE = GAUGE_MAX - GAUGE_MIN
 
 // Map shared BMI categories to gauge segments (clamp min to GAUGE_MIN)
-const segments = BMI_CATEGORIES.map(cat => ({
+const segments = BMI_CATEGORIES.map((cat) => ({
   min: Math.max(cat.min, GAUGE_MIN),
   max: cat.max,
   colorClass: cat.bgColorClass,
@@ -23,7 +23,7 @@ const segments = BMI_CATEGORIES.map(cat => ({
 
 // Compute each segment's left % and width %
 const segmentStyles = computed(() =>
-  segments.map(s => ({
+  segments.map((s) => ({
     ...s,
     left: `${((s.min - GAUGE_MIN) / GAUGE_RANGE) * 100}%`,
     width: `${((s.max - s.min) / GAUGE_RANGE) * 100}%`,
@@ -40,7 +40,7 @@ const markerPosition = computed(() => {
 // Tick marks at key BMI thresholds
 const ticks = [16, 17, 18.5, 25, 30, 35, 40]
 const tickStyles = computed(() =>
-  ticks.map(value => ({
+  ticks.map((value) => ({
     value,
     position: `${((value - GAUGE_MIN) / GAUGE_RANGE) * 100}%`,
   })),
@@ -72,7 +72,11 @@ const tickStyles = computed(() =>
       <template v-if="markerPosition !== null">
         <div
           class="absolute top-1/2 z-10 h-8 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground ring-2 ring-background"
-          style="box-shadow: 0 0 6px oklch(0.16 0.02 55 / 0.4), 0 2px 4px oklch(0.16 0.02 55 / 0.3);"
+          style="
+            box-shadow:
+              0 0 6px oklch(0.16 0.02 55 / 0.4),
+              0 2px 4px oklch(0.16 0.02 55 / 0.3);
+          "
           :style="{ left: markerPosition }"
         />
       </template>

@@ -45,15 +45,15 @@ function getRowHighlightClass(row: DailyCalorieRow): string {
 
 function getConsumedClass(row: DailyCalorieRow): string {
   if (!getStatus(row)) return ''
-  return isStatusAlignedWithGoal(row) ? 'font-semibold text-emerald-600 dark:text-emerald-400' : 'font-semibold text-red-600 dark:text-red-400'
+  return isStatusAlignedWithGoal(row)
+    ? 'font-semibold text-emerald-600 dark:text-emerald-400'
+    : 'font-semibold text-red-600 dark:text-red-400'
 }
 
 function openRow(row: DailyCalorieRow) {
   selectedRow.value = row
   dialogOpen.value = true
 }
-
-
 </script>
 
 <template>
@@ -73,7 +73,10 @@ function openRow(row: DailyCalorieRow) {
           <TableRow v-if="rows.length === 0">
             <TableCell colspan="5" class="py-12 text-center">
               <div class="flex flex-col items-center gap-2">
-                <Icon icon="lucide:utensils" class="h-12 w-12 text-muted-foreground/25 animate-gentle-bob" />
+                <Icon
+                  icon="lucide:utensils"
+                  class="h-12 w-12 text-muted-foreground/25 animate-gentle-bob"
+                />
                 <p class="text-sm font-medium text-foreground/70">No calorie entries yet</p>
                 <p class="text-xs text-muted-foreground">Log your first meal to start tracking</p>
               </div>
@@ -108,11 +111,7 @@ function openRow(row: DailyCalorieRow) {
             </TableCell>
             <TableCell>
               <template v-if="row.consumedKcal !== null && row.goalKcal !== null">
-                <Badge
-                  v-if="getStatus(row)"
-                  class="text-xs"
-                  :class="getStatus(row)?.badgeClass"
-                >
+                <Badge v-if="getStatus(row)" class="text-xs" :class="getStatus(row)?.badgeClass">
                   {{ getStatus(row)?.label }}
                 </Badge>
               </template>

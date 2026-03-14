@@ -30,7 +30,7 @@ Edit `docker-compose.yml` and change the port mapping:
 
 ```yaml
 ports:
-  - "3000:8090"   # expose on port 3000 instead
+  - '3000:8090' # expose on port 3000 instead
 ```
 
 ### Updating
@@ -89,14 +89,14 @@ The dev server runs at `http://localhost:5173` and connects to PocketBase at `ht
 
 ### Available Scripts
 
-| Command | Description |
-|---|---|
-| `bun dev` | Start Vite dev server with hot-reload |
-| `bun run build` | Type-check and build for production |
-| `bun run build-only` | Build without type-checking |
-| `bun run type-check` | Run TypeScript type checking |
-| `bun lint` | Lint and auto-fix with OxLint + ESLint |
-| `bun run format` | Format `src/` with OxFmt |
+| Command              | Description                            |
+| -------------------- | -------------------------------------- |
+| `bun dev`            | Start Vite dev server with hot-reload  |
+| `bun run build`      | Type-check and build for production    |
+| `bun run build-only` | Build without type-checking            |
+| `bun run type-check` | Run TypeScript type checking           |
+| `bun lint`           | Lint and auto-fix with OxLint + ESLint |
+| `bun run format`     | Format `src/` with OxFmt               |
 
 ### Releases
 

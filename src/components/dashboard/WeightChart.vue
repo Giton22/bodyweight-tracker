@@ -24,7 +24,7 @@ const chartConfig: ChartConfig = {
 }
 
 const data = computed((): WeightDatum[] =>
-  store.averagedEntries.map(e => ({
+  store.averagedEntries.map((e) => ({
     date: new Date(e.date).getTime(),
     weight: convert(e.weightKg),
   })),
@@ -44,11 +44,11 @@ const numTicks = computed(() => Math.min(data.value.length, 12))
 
 const chartMargin = { top: 10, right: 10, bottom: 30, left: 45 }
 
-const unitLabel = computed(() => isKg.value ? 'kg' : 'lbs')
+const unitLabel = computed(() => (isKg.value ? 'kg' : 'lbs'))
 
 const domainY = computed((): [number, number] => {
   if (data.value.length === 0) return [0, 100]
-  const weights = data.value.map(d => d.weight)
+  const weights = data.value.map((d) => d.weight)
   const min = Math.min(...weights)
   const max = Math.max(...weights)
   return [Math.floor(min / 10) * 10, Math.ceil(max / 10) * 10]
@@ -56,20 +56,17 @@ const domainY = computed((): [number, number] => {
 </script>
 
 <template>
-  <div v-if="data.length === 0" class="flex h-[280px] flex-col items-center justify-center gap-2 text-center">
+  <div
+    v-if="data.length === 0"
+    class="flex h-[280px] flex-col items-center justify-center gap-2 text-center"
+  >
     <Icon icon="lucide:line-chart" class="h-12 w-12 text-muted-foreground/25 animate-gentle-bob" />
     <p class="text-sm font-medium text-foreground/70">No weight data in this range</p>
     <p class="text-xs text-muted-foreground">Log your first weight to see your chart</p>
   </div>
   <ChartContainer v-else :config="chartConfig" class="h-[280px] w-full">
     <VisXYContainer :data="data" :margin="chartMargin" :domain-y="domainY">
-      <VisLine
-        :x="x"
-        :y="y"
-        color="var(--chart-1)"
-        :line-width="2"
-        :curve-type="'monotoneX'"
-      />
+      <VisLine :x="x" :y="y" color="var(--chart-1)" :line-width="2" :curve-type="'monotoneX'" />
       <VisScatter
         :x="x"
         :y="y"
@@ -78,20 +75,12 @@ const domainY = computed((): [number, number] => {
         :stroke-width="2"
         :size="8"
       />
-      <VisAxis
-        type="x"
-        :tick-format="xTickFormat"
-        :num-ticks="numTicks"
-        label=""
-      />
-      <VisAxis
-        type="y"
-        :tick-format="(v: number) => `${v} ${unitLabel}`"
-        :num-ticks="5"
-        label=""
-      />
+      <VisAxis type="x" :tick-format="xTickFormat" :num-ticks="numTicks" label="" />
+      <VisAxis type="y" :tick-format="(v: number) => `${v} ${unitLabel}`" :num-ticks="5" label="" />
       <VisCrosshair
-        :template="(d: WeightDatum) => d ? `${formatDateCompact(d.date)}: ${d.weight} ${unitLabel}` : ''"
+        :template="
+          (d: WeightDatum) => (d ? `${formatDateCompact(d.date)}: ${d.weight} ${unitLabel}` : '')
+        "
         color="var(--chart-1)"
       />
       <VisTooltip>

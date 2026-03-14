@@ -39,7 +39,9 @@ const progress = computed(() => {
           <Icon icon="lucide:target" class="h-4 w-4 text-primary" />
           <span class="font-medium">{{ goal.title }}</span>
         </div>
-        <span v-if="progress !== null" class="text-xs font-medium text-muted-foreground">{{ progress }}%</span>
+        <span v-if="progress !== null" class="text-xs font-medium text-muted-foreground"
+          >{{ progress }}%</span
+        >
       </div>
 
       <div v-if="goal.targetValue" class="flex items-center gap-2 text-sm">

@@ -23,8 +23,7 @@ watch(
       await weightStore.loadAll()
       weightStore.subscribeRealtime()
       await groupsStore.loadMyGroups()
-    }
-    else {
+    } else {
       weightStore.reset()
       groupsStore.reset()
     }

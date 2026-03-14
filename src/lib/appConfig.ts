@@ -23,8 +23,7 @@ export async function checkSetupComplete(): Promise<AppConfigResult> {
     return {
       setupComplete: record?.setup_complete === true,
     }
-  }
-  catch (e: unknown) {
+  } catch (e: unknown) {
     if (e instanceof ClientResponseError && e.status === 404) {
       // Collection doesn't exist — this is a legacy instance with existing users.
       return { setupComplete: true, collectionMissing: true }

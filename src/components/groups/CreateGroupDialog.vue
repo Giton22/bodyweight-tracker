@@ -40,8 +40,8 @@ async function submit() {
     const group = await store.createGroup(name.value.trim(), description.value.trim() || undefined)
     open.value = false
     if (group) emit('created', group.id)
-  } catch (e: any) {
-    error.value = e.message || 'Failed to create group'
+  } catch (e: unknown) {
+    error.value = (e as { message?: string }).message || 'Failed to create group'
   } finally {
     isSubmitting.value = false
   }

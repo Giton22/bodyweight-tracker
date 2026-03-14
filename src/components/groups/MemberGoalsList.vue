@@ -28,7 +28,9 @@ const memberGoal = computed(() => props.goals.find((g) => g.user === props.membe
 <template>
   <div class="space-y-3">
     <div class="flex items-center gap-2.5">
-      <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+      <div
+        class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary"
+      >
         {{ initials }}
       </div>
       <span class="text-sm font-medium">{{ displayName }}</span>

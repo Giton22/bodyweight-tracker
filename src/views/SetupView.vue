@@ -49,14 +49,15 @@ function displayToKg(val: number): number | undefined {
 }
 
 // ── Step validation ──
-const step2Valid = computed(() =>
-  email.value.trim().length > 0
-  && password.value.length >= 8
-  && password.value === passwordConfirm.value,
+const step2Valid = computed(
+  () =>
+    email.value.trim().length > 0 &&
+    password.value.length >= 8 &&
+    password.value === passwordConfirm.value,
 )
 
-const passwordMismatch = computed(() =>
-  passwordConfirm.value.length > 0 && password.value !== passwordConfirm.value,
+const passwordMismatch = computed(
+  () => passwordConfirm.value.length > 0 && password.value !== passwordConfirm.value,
 )
 
 // ── Navigation ──
@@ -103,13 +104,11 @@ async function finish() {
 
     // 5. Show completion screen
     step.value = 4
-  }
-  catch (e: unknown) {
+  } catch (e: unknown) {
     accountError.value = e instanceof Error ? e.message : 'Setup failed. Please try again.'
     // If registration failed, go back to account step
     step.value = 2
-  }
-  finally {
+  } finally {
     isLoading.value = false
   }
 }
@@ -120,9 +119,10 @@ function goToDashboard() {
 </script>
 
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4">
+  <div
+    class="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 p-4"
+  >
     <div class="w-full max-w-md">
-
       <!-- Progress bar (steps 1–3) -->
       <div v-if="step < 4" class="mb-6">
         <div class="mb-2 flex items-center justify-between text-xs text-muted-foreground">
@@ -140,7 +140,9 @@ function goToDashboard() {
       <!-- ── Step 1: Welcome ── -->
       <Card v-if="step === 1" class="shadow-warm-lg">
         <CardHeader class="text-center">
-          <div class="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+          <div
+            class="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10"
+          >
             <Icon icon="lucide:scale" class="h-7 w-7 text-primary" />
           </div>
           <CardTitle class="text-2xl">Welcome</CardTitle>
@@ -322,12 +324,7 @@ function goToDashboard() {
             <!-- Date of Birth -->
             <div class="flex flex-col gap-1.5">
               <Label for="setup-dob">Date of Birth</Label>
-              <Input
-                id="setup-dob"
-                v-model="dateOfBirth"
-                type="date"
-                class="max-w-[200px]"
-              />
+              <Input id="setup-dob" v-model="dateOfBirth" type="date" class="max-w-[200px]" />
             </div>
 
             <!-- Biological Sex -->
@@ -342,7 +339,9 @@ function goToDashboard() {
                   <SelectItem value="female">Female</SelectItem>
                 </SelectContent>
               </Select>
-              <p class="text-xs text-muted-foreground">Optional — used for body composition context.</p>
+              <p class="text-xs text-muted-foreground">
+                Optional — used for body composition context.
+              </p>
             </div>
 
             <p v-if="accountError" class="text-sm text-destructive">
@@ -350,12 +349,22 @@ function goToDashboard() {
             </p>
 
             <div class="flex gap-2 pt-1">
-              <Button type="button" variant="outline" class="flex-1" :disabled="isLoading" @click="prevStep">
+              <Button
+                type="button"
+                variant="outline"
+                class="flex-1"
+                :disabled="isLoading"
+                @click="prevStep"
+              >
                 <Icon icon="lucide:arrow-left" class="mr-2 h-4 w-4" />
                 Back
               </Button>
               <Button type="submit" class="flex-1" :disabled="isLoading">
-                <Icon v-if="isLoading" icon="lucide:loader-circle" class="mr-2 h-4 w-4 animate-spin" />
+                <Icon
+                  v-if="isLoading"
+                  icon="lucide:loader-circle"
+                  class="mr-2 h-4 w-4 animate-spin"
+                />
                 <span v-else>Finish Setup</span>
               </Button>
             </div>
@@ -366,7 +375,9 @@ function goToDashboard() {
       <!-- ── Step 4: Done ── -->
       <Card v-else-if="step === 4" class="shadow-warm-lg">
         <CardHeader class="text-center">
-          <div class="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-success/10">
+          <div
+            class="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-full bg-success/10"
+          >
             <Icon icon="lucide:circle-check" class="h-7 w-7 text-success" />
           </div>
           <CardTitle class="text-2xl">You're all set!</CardTitle>
@@ -387,7 +398,6 @@ function goToDashboard() {
           </Button>
         </CardContent>
       </Card>
-
     </div>
   </div>
 </template>

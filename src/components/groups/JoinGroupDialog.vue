@@ -31,7 +31,10 @@ watch(open, (isOpen) => {
 
 function onCodeInput(e: Event) {
   const target = e.target as HTMLInputElement
-  code.value = target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8)
+  code.value = target.value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 8)
 }
 
 async function submit() {
@@ -43,11 +46,12 @@ async function submit() {
     const group = await store.joinGroup(code.value)
     open.value = false
     emit('joined', group.id)
-  } catch (e: any) {
-    if (e.status === 404 || e.message?.includes('not found')) {
+  } catch (e: unknown) {
+    const err = e as { status?: number; message?: string }
+    if (err.status === 404 || err.message?.includes('not found')) {
       error.value = 'Invalid invite code. Please check and try again.'
     } else {
-      error.value = e.message || 'Failed to join group'
+      error.value = err.message || 'Failed to join group'
     }
   } finally {
     isSubmitting.value = false

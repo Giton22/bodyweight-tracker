@@ -28,12 +28,10 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const auth = await pb.collection('users').authWithPassword(email, password)
       currentUser.value = auth.record
-    }
-    catch (e: unknown) {
+    } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : 'Login failed'
       throw e
-    }
-    finally {
+    } finally {
       isLoading.value = false
     }
   }
@@ -50,12 +48,10 @@ export const useAuthStore = defineStore('auth', () => {
       })
       // Auto-login after successful registration
       await login(email, password)
-    }
-    catch (e: unknown) {
+    } catch (e: unknown) {
       error.value = e instanceof Error ? e.message : 'Registration failed'
       throw e
-    }
-    finally {
+    } finally {
       isLoading.value = false
     }
   }
@@ -98,16 +94,19 @@ export const useAuthStore = defineStore('auth', () => {
         const result = await checkSetupComplete()
         setupComplete.value = result.setupComplete
         if (result.collectionMissing) {
-          console.info('[checkSetup] app_config collection not found — treating as legacy instance (setup complete)')
+          console.info(
+            '[checkSetup] app_config collection not found — treating as legacy instance (setup complete)',
+          )
         }
-      }
-      catch (e: unknown) {
+      } catch (e: unknown) {
         // Network error or unexpected failure — fall back to login page so
         // users aren't permanently locked out.
         setupComplete.value = true
-        console.warn('[checkSetup] Unexpected error fetching app_config, assuming setup complete:', e)
-      }
-      finally {
+        console.warn(
+          '[checkSetup] Unexpected error fetching app_config, assuming setup complete:',
+          e,
+        )
+      } finally {
         _checkSetupPromise = null
       }
       return setupComplete.value!
