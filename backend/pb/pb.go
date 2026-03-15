@@ -28,6 +28,7 @@ func Start() error {
 	// Serve embedded frontend
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		registerDataCsvRoutes(se)
+		registerFoodApiRoutes(se)
 		se.Router.GET("/{path...}", apis.Static(distDirFS, true))
 		return se.Next()
 	})

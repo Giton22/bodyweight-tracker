@@ -22,6 +22,7 @@ type csvDataType string
 const (
 	csvDataTypeWeight   csvDataType = "weight"
 	csvDataTypeCalories csvDataType = "calories"
+	csvDataTypeFoodLog  csvDataType = "food_log"
 )
 
 type csvImportError struct {
@@ -93,8 +94,11 @@ func parseCSVDataType(raw string) (csvDataType, error) {
 	if v == string(csvDataTypeCalories) {
 		return csvDataTypeCalories, nil
 	}
+	if v == string(csvDataTypeFoodLog) || v == "food" {
+		return csvDataTypeFoodLog, nil
+	}
 
-	return "", errors.New("invalid type, expected one of: weight, calories")
+	return "", errors.New("invalid type, expected one of: weight, calories, food_log")
 }
 
 func importCSV(app core.App, userID string, dataType csvDataType, r io.Reader) (*csvImportResult, error) {
@@ -237,7 +241,8 @@ func exportCSV(app core.App, userID string, dataType csvDataType) ([]byte, error
 		err     error
 	)
 
-	if dataType == csvDataTypeWeight {
+	switch dataType {
+	case csvDataTypeWeight:
 		headers = []string{"date", "weight_kg", "note"}
 		records, err = app.FindRecordsByFilter(
 			"weight_entries",
@@ -247,7 +252,17 @@ func exportCSV(app core.App, userID string, dataType csvDataType) ([]byte, error
 			0,
 			dbx.Params{"userId": userID},
 		)
-	} else {
+	case csvDataTypeFoodLog:
+		headers = []string{"date", "meal_type", "food_name", "amount_g", "calories", "protein", "carbs", "fat", "note"}
+		records, err = app.FindRecordsByFilter(
+			"food_log",
+			"user = {:userId}",
+			"date",
+			0,
+			0,
+			dbx.Params{"userId": userID},
+		)
+	default:
 		headers = []string{"date", "calories", "goal_override_kcal", "note"}
 		records, err = app.FindRecordsByFilter(
 			"calorie_entries",
@@ -273,7 +288,8 @@ func exportCSV(app core.App, userID string, dataType csvDataType) ([]byte, error
 	}
 
 	for _, rec := range records {
-		if dataType == csvDataTypeWeight {
+		switch dataType {
+		case csvDataTypeWeight:
 			if err := w.Write([]string{
 				rec.GetString("date"),
 				formatFloat(rec.GetFloat("weight_kg")),
@@ -281,19 +297,32 @@ func exportCSV(app core.App, userID string, dataType csvDataType) ([]byte, error
 			}); err != nil {
 				return nil, err
 			}
-			continue
-		}
+		case csvDataTypeFoodLog:
+			if err := w.Write([]string{
+				rec.GetString("date"),
+				rec.GetString("meal_type"),
+				rec.GetString("food_name"),
+				formatFloat(rec.GetFloat("amount_g")),
+				formatFloat(rec.GetFloat("calories")),
+				optionalFloatToString(rec.GetFloat("protein")),
+				optionalFloatToString(rec.GetFloat("carbs")),
+				optionalFloatToString(rec.GetFloat("fat")),
+				rec.GetString("note"),
+			}); err != nil {
+				return nil, err
+			}
+		default:
+			calories := rec.GetFloat("calories")
+			goalOverride := rec.GetFloat("goal_override_kcal")
 
-		calories := rec.GetFloat("calories")
-		goalOverride := rec.GetFloat("goal_override_kcal")
-
-		if err := w.Write([]string{
-			rec.GetString("date"),
-			optionalFloatToString(calories),
-			optionalFloatToString(goalOverride),
-			rec.GetString("note"),
-		}); err != nil {
-			return nil, err
+			if err := w.Write([]string{
+				rec.GetString("date"),
+				optionalFloatToString(calories),
+				optionalFloatToString(goalOverride),
+				rec.GetString("note"),
+			}); err != nil {
+				return nil, err
+			}
 		}
 	}
 

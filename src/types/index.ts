@@ -66,6 +66,45 @@ export interface Goal {
   updated: string
 }
 
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack'
+export type FoodSource = 'manual' | 'openfoodfacts' | 'nutrition_label'
+
+export interface FoodItem {
+  id: string
+  name: string
+  brand?: string
+  barcode?: string
+  caloriesPer100g: number
+  proteinPer100g?: number
+  carbsPer100g?: number
+  fatPer100g?: number
+  defaultServingG: number
+  source: FoodSource
+  offId?: string
+}
+
+export interface FoodLogEntry {
+  id: string
+  date: string
+  mealType: MealType
+  foodItem?: string
+  foodName: string
+  amountG: number
+  calories: number
+  protein?: number
+  carbs?: number
+  fat?: number
+  note?: string
+}
+
+export interface DailyFoodSummary {
+  meals: Record<MealType, FoodLogEntry[]>
+  totalCalories: number
+  totalProtein: number
+  totalCarbs: number
+  totalFat: number
+}
+
 export type WeightUnit = 'kg' | 'lbs'
 
 export type TimeRange = 7 | 30 | 90 | 'custom'

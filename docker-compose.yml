@@ -10,6 +10,10 @@ services:
       # The superuser upsert command is idempotent — safe to leave set after first run.
       PB_ADMIN_EMAIL: ${PB_ADMIN_EMAIL:-}
       PB_ADMIN_PASSWORD: ${PB_ADMIN_PASSWORD:-}
+      # Optional: vision API for nutrition label scanning
+      VISION_API_URL: ${VISION_API_URL:-}
+      VISION_API_KEY: ${VISION_API_KEY:-}
+      VISION_MODEL: ${VISION_MODEL:-}
     volumes:
       - pb_data:/pb/pb_data
     healthcheck:

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Icon } from '@iconify/vue'
-import type { DailyCalorieRow } from '@/types'
+import type { DailyCalorieRow, MealType } from '@/types'
 import { useWeightStore } from '@/stores/weight'
+import { useFoodStore } from '@/stores/food'
 import { formatDateShort } from '@/lib/date'
 import { getCalorieStatus } from '@/lib/calorieStatus'
 import { Badge } from '@/components/ui/badge'
@@ -15,11 +16,16 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import EditCaloriesDayDialog from '@/components/dashboard/EditCaloriesDayDialog.vue'
+import DailyFoodBreakdown from '@/components/dashboard/food/DailyFoodBreakdown.vue'
+import LogFoodDialog from '@/components/dashboard/food/LogFoodDialog.vue'
 
 const store = useWeightStore()
+const foodStore = useFoodStore()
 
 const selectedRow = ref<DailyCalorieRow | null>(null)
-const dialogOpen = ref(false)
+const editDialogOpen = ref(false)
+const breakdownDialogOpen = ref(false)
+const breakdownDate = ref<string | null>(null)
 const scrollContainerRef = ref<HTMLElement | null>(null)
 const scrollTop = ref(0)
 const containerHeight = ref(500)
@@ -111,9 +117,37 @@ function getConsumedClass(row: DailyCalorieRow): string {
     : 'font-semibold text-red-600 dark:text-red-400'
 }
 
+function getFoodCount(date: string): number {
+  const summary = foodStore.dailyFoodSummaries.get(date)
+  if (!summary) return 0
+  return Object.values(summary.meals).reduce((s, entries) => s + entries.length, 0)
+}
+
 function openRow(row: DailyCalorieRow) {
+  const foodCount = getFoodCount(row.date)
+  if (foodCount > 0) {
+    breakdownDate.value = row.date
+    breakdownDialogOpen.value = true
+  } else {
+    selectedRow.value = row
+    editDialogOpen.value = true
+  }
+}
+
+function openEditFromBreakdown(row: DailyCalorieRow) {
   selectedRow.value = row
-  dialogOpen.value = true
+  editDialogOpen.value = true
+}
+
+const logFoodOpen = ref(false)
+const logFoodDate = ref<string | undefined>()
+const logFoodMealType = ref<MealType | undefined>()
+
+function onAddFood(mealType: MealType) {
+  logFoodDate.value = breakdownDate.value ?? undefined
+  logFoodMealType.value = mealType
+  breakdownDialogOpen.value = false
+  logFoodOpen.value = true
 }
 </script>
 
@@ -160,7 +194,18 @@ function openRow(row: DailyCalorieRow) {
             :class="getRowHighlightClass(row)"
             @click="openRow(row)"
           >
-            <TableCell class="font-medium">{{ formatDateShort(row.date) }}</TableCell>
+            <TableCell class="font-medium">
+              <div class="flex items-center gap-1.5">
+                {{ formatDateShort(row.date) }}
+                <Badge
+                  v-if="getFoodCount(row.date) > 0"
+                  variant="secondary"
+                  class="px-1.5 py-0 text-[10px]"
+                >
+                  {{ getFoodCount(row.date) }} items
+                </Badge>
+              </div>
+            </TableCell>
             <TableCell>
               <span v-if="row.consumedKcal !== null" :class="getConsumedClass(row)">
                 {{ row.consumedKcal }}
@@ -192,7 +237,7 @@ function openRow(row: DailyCalorieRow) {
               <button
                 type="button"
                 class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground"
-                @click.stop="openRow(row)"
+                @click.stop="openEditFromBreakdown(row)"
               >
                 <Icon icon="lucide:pencil" class="h-4 w-4" />
               </button>
@@ -208,6 +253,16 @@ function openRow(row: DailyCalorieRow) {
       </Table>
     </div>
 
-    <EditCaloriesDayDialog v-model:open="dialogOpen" :row="selectedRow" />
+    <EditCaloriesDayDialog v-model:open="editDialogOpen" :row="selectedRow" />
+    <DailyFoodBreakdown
+      v-model:open="breakdownDialogOpen"
+      :date="breakdownDate"
+      @add-food="onAddFood"
+    />
+    <LogFoodDialog
+      v-model:open="logFoodOpen"
+      :initial-date="logFoodDate"
+      :initial-meal-type="logFoodMealType"
+    />
   </div>
 </template>

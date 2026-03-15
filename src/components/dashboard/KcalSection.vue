@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useWeightStore } from '@/stores/weight'
+import { useFoodStore } from '@/stores/food'
 import { getCalorieStatus } from '@/lib/calorieStatus'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import StatCard from '@/components/dashboard/StatCard.vue'
@@ -8,9 +9,11 @@ import KcalChart from '@/components/dashboard/KcalChart.vue'
 import DailyCaloriesTable from '@/components/dashboard/DailyCaloriesTable.vue'
 import TimeRangeSelect from '@/components/dashboard/TimeRangeSelect.vue'
 import SetKcalGoalDialog from '@/components/dashboard/SetKcalGoalDialog.vue'
-import LogCaloriesDialog from '@/components/dashboard/LogCaloriesDialog.vue'
+import LogFoodDialog from '@/components/dashboard/food/LogFoodDialog.vue'
+import QuickLogDialog from '@/components/dashboard/food/QuickLogDialog.vue'
 
 const store = useWeightStore()
+const foodStore = useFoodStore()
 
 const todayKcalRemaining = computed(() => {
   const summary = store.todayCalorieSummary
@@ -34,8 +37,22 @@ const todayKcalStatusLine = computed(() => {
   return `${todayKcalStatus.value.label} kcal`
 })
 
+const todayMacros = computed(() => {
+  const summary = foodStore.todayFoodSummary
+  if (!summary) return null
+  return {
+    protein: summary.totalProtein,
+    carbs: summary.totalCarbs,
+    fat: summary.totalFat,
+  }
+})
+
 const filteredCalorieCount = computed(() => store.dailyCalorieRows.length)
-const totalCalorieCount = computed(() => store.calorieEntries.length)
+const totalCalorieCount = computed(() => {
+  const foodDates = foodStore.dailyFoodSummaries.size
+  const calorieDates = store.calorieEntries.length
+  return Math.max(foodDates, calorieDates)
+})
 
 const caloriesCountHint = computed(() => {
   if (totalCalorieCount.value === 0) return ''
@@ -58,10 +75,12 @@ const caloriesCountHint = computed(() => {
             : '—'
         "
         :description="
-          store.todayCalorieSummary?.goalKcal !== null &&
-          store.todayCalorieSummary?.goalKcal !== undefined
-            ? `Goal: ${store.todayCalorieSummary.goalKcal} kcal`
-            : 'No goal set'
+          todayMacros
+            ? `P ${todayMacros.protein}g · C ${todayMacros.carbs}g · F ${todayMacros.fat}g`
+            : store.todayCalorieSummary?.goalKcal !== null &&
+                store.todayCalorieSummary?.goalKcal !== undefined
+              ? `Goal: ${store.todayCalorieSummary.goalKcal} kcal`
+              : 'No goal set'
         "
       />
       <StatCard
@@ -89,7 +108,8 @@ const caloriesCountHint = computed(() => {
         <div class="flex flex-wrap items-center gap-2">
           <TimeRangeSelect target="calories" />
           <SetKcalGoalDialog />
-          <LogCaloriesDialog />
+          <QuickLogDialog />
+          <LogFoodDialog />
         </div>
       </CardHeader>
       <CardContent>

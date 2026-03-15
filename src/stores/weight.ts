@@ -23,9 +23,10 @@ import { todayISO } from '@/lib/date'
 import { today } from '@/composables/useToday'
 import { getBmiCategory } from '@/composables/useBmi'
 import { useGroupsStore } from '@/stores/groups'
+import { useFoodStore } from '@/stores/food'
 
 type AverageMode = 'daily' | 'weekly' | 'monthly'
-export type CsvDataType = 'weight' | 'calories'
+export type CsvDataType = 'weight' | 'calories' | 'food_log'
 type CustomDateRange = { start: string; end: string }
 
 export interface CsvImportError {
@@ -189,6 +190,9 @@ export const useWeightStore = defineStore('weight', () => {
         settingsRecordId.value = rec.id
       }
 
+      // Load food data in parallel
+      await useFoodStore().loadFoodData()
+
       isSynced.value = true
     } finally {
       isLoading.value = false
@@ -262,6 +266,8 @@ export const useWeightStore = defineStore('weight', () => {
       },
       { filter },
     )
+
+    useFoodStore().subscribeRealtime()
   }
 
   function unsubscribeRealtime() {
@@ -269,6 +275,7 @@ export const useWeightStore = defineStore('weight', () => {
     void pb.collection(COLLECTIONS.CALORIE_ENTRIES).unsubscribe('*')
     void pb.collection(COLLECTIONS.KCAL_GOAL_HISTORY).unsubscribe('*')
     void pb.collection(COLLECTIONS.USER_SETTINGS).unsubscribe('*')
+    useFoodStore().unsubscribeRealtime()
   }
 
   function reset() {
@@ -290,6 +297,7 @@ export const useWeightStore = defineStore('weight', () => {
     calorieCustomRange.value = null
     averageMode.value = 'daily'
     isSynced.value = false
+    useFoodStore().reset()
   }
 
   // ── Settings helpers ──
@@ -475,27 +483,57 @@ export const useWeightStore = defineStore('weight', () => {
 
   const dailyCalorieRows = computed((): DailyCalorieRow[] => {
     const goals = sortedKcalGoalHistory.value
+    const foodStore = useFoodStore()
+    const foodSummaries = foodStore.dailyFoodSummaries
+
+    // Collect all dates that have either calorie entries or food log entries in range
+    const dateSet = new Set<string>()
+    for (const e of calorieEntries.value) {
+      if (isDateInRange(e.date, calorieTimeRange.value, calorieCustomRange.value)) {
+        dateSet.add(e.date)
+      }
+    }
+    for (const [date] of foodSummaries) {
+      if (isDateInRange(date, calorieTimeRange.value, calorieCustomRange.value)) {
+        dateSet.add(date)
+      }
+    }
+
+    const allDates = [...dateSet].sort()
+
+    // Build a lookup for calorie entries by date
+    const calorieByDate = new Map<string, CalorieEntry>()
+    for (const e of calorieEntries.value) {
+      calorieByDate.set(e.date, e)
+    }
+
     let goalIndex = 0
     let activeGlobalGoal: number | null = null
 
-    const inRange = [...calorieEntries.value]
-      .filter((e) => isDateInRange(e.date, calorieTimeRange.value, calorieCustomRange.value))
-      .sort((a, b) => a.date.localeCompare(b.date))
-
-    return inRange.map((entry) => {
-      while (goalIndex < goals.length && goals[goalIndex]!.effectiveFrom <= entry.date) {
+    return allDates.map((date) => {
+      while (goalIndex < goals.length && goals[goalIndex]!.effectiveFrom <= date) {
         activeGlobalGoal = goals[goalIndex]!.kcal
         goalIndex++
       }
 
-      const hasOverride = entry.goalOverrideKcal != null
-      const goal = hasOverride ? entry.goalOverrideKcal! : activeGlobalGoal
+      const calorieEntry = calorieByDate.get(date)
+      const foodSummary = foodSummaries.get(date)
+
+      const hasOverride = calorieEntry?.goalOverrideKcal != null
+      const goal = hasOverride ? calorieEntry!.goalOverrideKcal! : activeGlobalGoal
       const source: DailyCalorieRow['goalSource'] = hasOverride
         ? 'override'
         : goal !== null
           ? 'global'
           : 'none'
-      const consumed = entry.calories
+
+      // Food log sums take precedence; fall back to legacy calorie_entries
+      let consumed: number | null = null
+      if (foodSummary) {
+        consumed = foodSummary.totalCalories
+      } else if (calorieEntry) {
+        consumed = calorieEntry.calories
+      }
 
       let delta: number | null = null
       let exceeded = false
@@ -505,14 +543,14 @@ export const useWeightStore = defineStore('weight', () => {
       }
 
       return {
-        date: entry.date,
+        date,
         consumedKcal: consumed,
         goalKcal: goal,
         goalSource: source,
         deltaKcal: delta,
         isExceeded: exceeded,
         hasEntry: true,
-        note: entry.note,
+        note: calorieEntry?.note,
       }
     })
   })
@@ -739,7 +777,14 @@ export const useWeightStore = defineStore('weight', () => {
 
     const userFilter = pb.filter('user = {:userId}', { userId })
 
-    const [weightRecords, calorieRecords, kcalGoalRecords, goalRecords] = await Promise.all([
+    const [
+      weightRecords,
+      calorieRecords,
+      kcalGoalRecords,
+      goalRecords,
+      foodItemRecords,
+      foodLogRecords,
+    ] = await Promise.all([
       pb
         .collection<WeightEntryRecord>(COLLECTIONS.WEIGHT_ENTRIES)
         .getFullList({ filter: userFilter }),
@@ -750,7 +795,14 @@ export const useWeightStore = defineStore('weight', () => {
         .collection<KcalGoalChangeRecord>(COLLECTIONS.KCAL_GOAL_HISTORY)
         .getFullList({ filter: userFilter }),
       pb.collection<GoalRecord>(COLLECTIONS.GOALS).getFullList({ filter: userFilter }),
+      pb.collection(COLLECTIONS.FOOD_ITEMS).getFullList({ filter: userFilter }),
+      pb.collection(COLLECTIONS.FOOD_LOG).getFullList({ filter: userFilter }),
     ])
+
+    // Delete food_log first (references food_items)
+    await Promise.all(
+      foodLogRecords.map((record) => pb.collection(COLLECTIONS.FOOD_LOG).delete(record.id)),
+    )
 
     await Promise.all([
       ...weightRecords.map((record) => pb.collection(COLLECTIONS.WEIGHT_ENTRIES).delete(record.id)),
@@ -761,11 +813,13 @@ export const useWeightStore = defineStore('weight', () => {
         pb.collection(COLLECTIONS.KCAL_GOAL_HISTORY).delete(record.id),
       ),
       ...goalRecords.map((record) => pb.collection(COLLECTIONS.GOALS).delete(record.id)),
+      ...foodItemRecords.map((record) => pb.collection(COLLECTIONS.FOOD_ITEMS).delete(record.id)),
     ])
 
     entries.value = []
     calorieEntries.value = []
     kcalGoalHistory.value = []
+    useFoodStore().reset()
   }
 
   async function importCsv(type: CsvDataType, file: File): Promise<CsvImportResult> {

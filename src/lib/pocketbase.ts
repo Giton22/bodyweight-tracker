@@ -68,6 +68,34 @@ export interface GroupMemberWithGroupExpand extends GroupMemberRecord {
   expand?: { group?: GroupRecord }
 }
 
+export interface FoodItemRecord extends RecordModel {
+  user: string
+  name: string
+  brand: string
+  barcode: string
+  calories_per_100g: number
+  protein_per_100g: number
+  carbs_per_100g: number
+  fat_per_100g: number
+  default_serving_g: number
+  source: 'manual' | 'openfoodfacts' | 'nutrition_label'
+  off_id: string
+}
+
+export interface FoodLogRecord extends RecordModel {
+  user: string
+  date: string
+  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+  food_item: string
+  food_name: string
+  amount_g: number
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  note: string
+}
+
 export interface GoalRecord extends RecordModel {
   user: string
   title: string
@@ -90,4 +118,6 @@ export const COLLECTIONS = {
   GROUPS: 'groups',
   GROUP_MEMBERS: 'group_members',
   GOALS: 'goals',
+  FOOD_ITEMS: 'food_items',
+  FOOD_LOG: 'food_log',
 } as const
