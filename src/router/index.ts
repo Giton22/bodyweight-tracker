@@ -22,10 +22,32 @@ const router = createRouter({
       meta: { requiresAuth: true, title: 'Dashboard' },
     },
     {
+      path: '/weight',
+      name: 'weight',
+      component: () => import('@/views/WeightTrackerView.vue'),
+      meta: { requiresAuth: true, title: 'Weight Tracker' },
+    },
+    {
+      path: '/nutrition',
+      name: 'nutrition',
+      component: () => import('@/views/NutritionLogView.vue'),
+      meta: { requiresAuth: true, title: 'Nutrition Log' },
+    },
+    {
+      path: '/nutrition/overview',
+      name: 'nutrition-overview',
+      component: () => import('@/views/NutritionOverviewView.vue'),
+      meta: { requiresAuth: true, title: 'Nutrition Overview' },
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('@/views/ProfileView.vue'),
+      meta: { requiresAuth: true, title: 'Profile & Settings' },
+    },
+    {
       path: '/settings',
-      name: 'settings',
-      component: () => import('@/views/SettingsView.vue'),
-      meta: { requiresAuth: true, title: 'Settings' },
+      redirect: '/profile',
     },
     {
       path: '/groups',

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300..700&family=DM+Serif+Display&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 @import 'tailwindcss';
 @import 'tw-animate-css';
@@ -491,18 +491,10 @@
   body {
     @apply bg-background text-foreground;
     font-family:
-      'DM Sans',
+      'Inter',
       system-ui,
       -apple-system,
       sans-serif;
-  }
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    font-family: 'DM Serif Display', Georgia, 'Times New Roman', serif;
   }
   input:focus,
   textarea:focus,

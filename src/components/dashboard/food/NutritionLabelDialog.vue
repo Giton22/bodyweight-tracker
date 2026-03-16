@@ -15,6 +15,10 @@ import {
 } from '@/components/ui/dialog'
 import FoodItemCard from './FoodItemCard.vue'
 
+defineProps<{
+  hideTrigger?: boolean
+}>()
+
 const emit = defineEmits<{
   scanned: [
     result: {
@@ -34,7 +38,7 @@ const emit = defineEmits<{
 
 const foodStore = useFoodStore()
 
-const open = ref(false)
+const open = defineModel<boolean>('open', { default: false })
 const imagePreview = ref<string | null>(null)
 const selectedFile = ref<File | null>(null)
 const analyzing = ref(false)
@@ -125,7 +129,7 @@ function useResult() {
 
 <template>
   <Dialog :open="open" @update:open="onOpenChange">
-    <DialogTrigger as-child>
+    <DialogTrigger v-if="!hideTrigger" as-child>
       <Button variant="outline" size="icon" title="Scan nutrition label">
         <Icon icon="lucide:camera" class="h-4 w-4" />
       </Button>

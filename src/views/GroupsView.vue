@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import { useGroupsStore } from '@/stores/groups'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import CreateGroupDialog from '@/components/groups/CreateGroupDialog.vue'
 import JoinGroupDialog from '@/components/groups/JoinGroupDialog.vue'
 
@@ -13,6 +14,7 @@ const store = useGroupsStore()
 
 const showCreateDialog = ref(false)
 const showJoinDialog = ref(false)
+const inviteCode = ref('')
 const groupsSentinelRef = ref<HTMLElement | null>(null)
 
 const GROUPS_INITIAL_BATCH = 24
@@ -34,19 +36,14 @@ function loadMoreGroups() {
 
 function setupGroupsObserver() {
   groupsObserver?.disconnect()
-
   const el = groupsSentinelRef.value
   if (!el) return
-
   groupsObserver = new IntersectionObserver(
     (entries) => {
-      if (entries[0]?.isIntersecting) {
-        loadMoreGroups()
-      }
+      if (entries[0]?.isIntersecting) loadMoreGroups()
     },
     { rootMargin: '300px 0px' },
   )
-
   groupsObserver.observe(el)
 }
 
@@ -62,9 +59,7 @@ watch(
   },
 )
 
-watch(groupsSentinelRef, () => {
-  setupGroupsObserver()
-})
+watch(groupsSentinelRef, () => setupGroupsObserver())
 
 onBeforeUnmount(() => {
   groupsObserver?.disconnect()
@@ -78,85 +73,139 @@ function onCreated(groupId: string) {
 function onJoined(groupId: string) {
   router.push(`/groups/${groupId}`)
 }
+
+// Group card colors based on index
+const cardColors = [
+  'bg-blue-100 dark:bg-blue-900/30 text-blue-600',
+  'bg-green-100 dark:bg-green-900/30 text-green-600',
+  'bg-amber-100 dark:bg-amber-900/30 text-amber-600',
+  'bg-purple-100 dark:bg-purple-900/30 text-purple-600',
+  'bg-rose-100 dark:bg-rose-900/30 text-rose-600',
+  'bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600',
+]
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl px-4 py-6 sm:px-6 space-y-6">
-    <!-- Header -->
-    <div class="flex items-center justify-between">
-      <h2 class="text-2xl font-bold tracking-tight">Groups</h2>
-      <div class="flex gap-2">
-        <Button variant="outline" @click="showJoinDialog = true">
-          <Icon icon="lucide:log-in" class="mr-2 h-4 w-4" />
-          Join Group
-        </Button>
-        <Button @click="showCreateDialog = true">
-          <Icon icon="lucide:plus" class="mr-2 h-4 w-4" />
-          Create Group
-        </Button>
-      </div>
-    </div>
-
-    <!-- Loading -->
-    <div v-if="store.isLoading" class="flex items-center justify-center py-12">
-      <Icon icon="lucide:loader-2" class="h-6 w-6 animate-spin text-muted-foreground" />
-    </div>
-
-    <!-- Group list -->
-    <div v-else-if="store.myGroups.length > 0" class="space-y-4">
-      <div class="grid gap-4 sm:grid-cols-2">
-        <Card
-          v-for="group in visibleGroups"
-          :key="group.id"
-          class="cursor-pointer transition-all duration-200 hover:bg-muted/50 hover:shadow-warm hover:-translate-y-0.5"
-          @click="router.push(`/groups/${group.id}`)"
-        >
-          <CardHeader class="pb-2">
-            <div class="flex items-start justify-between">
-              <CardTitle class="text-base">{{ group.name }}</CardTitle>
-              <Icon
-                icon="lucide:chevron-right"
-                class="h-4 w-4 text-muted-foreground shrink-0 mt-0.5"
-              />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p v-if="group.description" class="text-sm text-muted-foreground line-clamp-2">
-              {{ group.description }}
-            </p>
-            <p v-else class="text-sm text-muted-foreground italic">No description</p>
-          </CardContent>
-        </Card>
+  <div class="p-4 lg:p-8">
+    <div class="mx-auto max-w-[1200px]">
+      <!-- Header -->
+      <div class="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h2 class="text-2xl font-black tracking-tight lg:text-4xl">Community Groups</h2>
+          <p class="mt-1 text-muted-foreground">
+            Manage your teams and participate in group challenges.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <!-- Inline invite code (desktop) -->
+          <div
+            class="hidden items-center gap-1 rounded-xl border border-border bg-card p-1 shadow-sm lg:flex"
+          >
+            <Input
+              v-model="inviteCode"
+              placeholder="Enter invite code"
+              class="w-32 border-none bg-transparent text-sm focus:ring-0"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              :disabled="inviteCode.length < 3"
+              @click="showJoinDialog = true"
+            >
+              Join Group
+            </Button>
+          </div>
+          <Button variant="outline" class="lg:hidden" @click="showJoinDialog = true">
+            <Icon icon="lucide:log-in" class="mr-2 size-4" />
+            Join Group
+          </Button>
+          <Button class="gap-2 font-bold" @click="showCreateDialog = true">
+            <Icon icon="lucide:plus-circle" class="size-5" />
+            Create Group
+          </Button>
+        </div>
       </div>
 
-      <div ref="groupsSentinelRef" class="h-2" aria-hidden="true" />
+      <!-- Mobile: invite code input -->
+      <Card class="mb-6 border-primary/20 lg:hidden">
+        <CardContent class="space-y-3 pt-4">
+          <p class="text-sm font-medium text-muted-foreground">Enter 8-character invite code</p>
+          <div class="flex gap-2">
+            <Input
+              v-model="inviteCode"
+              placeholder="XJ9-42-LK"
+              class="flex-1 text-center font-mono uppercase tracking-widest"
+              maxlength="8"
+            />
+            <Button :disabled="inviteCode.length < 3" @click="showJoinDialog = true">Enter</Button>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div v-if="hasMoreGroups" class="flex justify-center">
-        <Button variant="outline" @click="loadMoreGroups">Load more groups</Button>
+      <!-- Loading -->
+      <div v-if="store.isLoading" class="flex items-center justify-center py-12">
+        <Icon icon="lucide:loader-2" class="size-6 animate-spin text-muted-foreground" />
       </div>
-    </div>
 
-    <!-- Empty state -->
-    <div v-else class="flex flex-col items-center justify-center py-16 text-center">
-      <Icon icon="lucide:users" class="h-12 w-12 text-muted-foreground/50 mb-4" />
-      <h3 class="text-lg font-medium">No groups yet</h3>
-      <p class="text-sm text-muted-foreground mt-1 mb-4">
-        Create a group or join one with an invite code.
-      </p>
-      <div class="flex gap-2">
-        <Button variant="outline" @click="showJoinDialog = true">
-          <Icon icon="lucide:log-in" class="mr-2 h-4 w-4" />
-          Join Group
-        </Button>
-        <Button @click="showCreateDialog = true">
-          <Icon icon="lucide:plus" class="mr-2 h-4 w-4" />
-          Create Group
-        </Button>
+      <!-- Group grid -->
+      <div v-else-if="store.myGroups.length > 0">
+        <h3 class="mb-6 text-xl font-bold">Your Groups</h3>
+        <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Card
+            v-for="(group, i) in visibleGroups"
+            :key="group.id"
+            class="cursor-pointer rounded-2xl border transition-all duration-200 hover:border-primary/50 hover:-translate-y-0.5"
+            @click="router.push(`/groups/${group.id}`)"
+          >
+            <CardContent class="pt-6">
+              <div class="mb-6 flex items-start justify-between">
+                <div
+                  class="flex size-14 items-center justify-center rounded-xl"
+                  :class="cardColors[i % cardColors.length]"
+                >
+                  <Icon icon="lucide:users" class="size-7" />
+                </div>
+              </div>
+              <h3 class="mb-1 text-lg font-bold transition-colors group-hover:text-primary">
+                {{ group.name }}
+              </h3>
+              <p v-if="group.description" class="mb-6 line-clamp-2 text-sm text-muted-foreground">
+                {{ group.description }}
+              </p>
+              <p v-else class="mb-6 text-sm italic text-muted-foreground">No description</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div ref="groupsSentinelRef" class="h-2" aria-hidden="true" />
+
+        <div v-if="hasMoreGroups" class="mt-6 flex justify-center">
+          <Button variant="outline" @click="loadMoreGroups">Load more groups</Button>
+        </div>
       </div>
-    </div>
 
-    <!-- Dialogs -->
-    <CreateGroupDialog v-model:open="showCreateDialog" @created="onCreated" />
-    <JoinGroupDialog v-model:open="showJoinDialog" @joined="onJoined" />
+      <!-- Empty state -->
+      <div v-else class="flex flex-col items-center justify-center py-16 text-center">
+        <Icon icon="lucide:users" class="mb-4 size-12 text-muted-foreground/50" />
+        <h3 class="text-lg font-medium">No groups yet</h3>
+        <p class="mb-4 mt-1 text-sm text-muted-foreground">
+          Create a group or join one with an invite code.
+        </p>
+        <div class="flex gap-2">
+          <Button variant="outline" @click="showJoinDialog = true">
+            <Icon icon="lucide:log-in" class="mr-2 size-4" />
+            Join Group
+          </Button>
+          <Button @click="showCreateDialog = true">
+            <Icon icon="lucide:plus" class="mr-2 size-4" />
+            Create Group
+          </Button>
+        </div>
+      </div>
+
+      <!-- Dialogs -->
+      <CreateGroupDialog v-model:open="showCreateDialog" @created="onCreated" />
+      <JoinGroupDialog v-model:open="showJoinDialog" @joined="onJoined" />
+    </div>
   </div>
 </template>

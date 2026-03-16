@@ -11,11 +11,15 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 
+defineProps<{
+  hideTrigger?: boolean
+}>()
+
 const emit = defineEmits<{
   scanned: [code: string]
 }>()
 
-const open = ref(false)
+const open = defineModel<boolean>('open', { default: false })
 const scannerRef = ref<HTMLDivElement | null>(null)
 const errorMessage = ref('')
 let scanner: InstanceType<typeof import('html5-qrcode').Html5Qrcode> | null = null
@@ -75,7 +79,7 @@ onBeforeUnmount(() => {
 
 <template>
   <Dialog :open="open" @update:open="onOpenChange">
-    <DialogTrigger as-child>
+    <DialogTrigger v-if="!hideTrigger" as-child>
       <Button variant="outline" size="icon" title="Scan barcode">
         <Icon icon="lucide:scan-barcode" class="h-4 w-4" />
       </Button>

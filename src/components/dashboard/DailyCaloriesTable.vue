@@ -153,105 +153,163 @@ function onAddFood(mealType: MealType) {
 
 <template>
   <div class="space-y-3">
-    <div
-      ref="scrollContainerRef"
-      class="max-h-[500px] overflow-auto rounded-lg border border-border"
-      @scroll="onScroll"
-    >
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Date</TableHead>
-            <TableHead>Consumed (kcal)</TableHead>
-            <TableHead>Goal (kcal)</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead class="text-right">Edit</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-if="rows.length === 0">
-            <TableCell colspan="5" class="py-12 text-center">
-              <div class="flex flex-col items-center gap-2">
-                <Icon
-                  icon="lucide:utensils"
-                  class="h-12 w-12 text-muted-foreground/25 animate-gentle-bob"
-                />
-                <p class="text-sm font-medium text-foreground/70">No calorie entries yet</p>
-                <p class="text-xs text-muted-foreground">Log your first meal to start tracking</p>
-              </div>
-            </TableCell>
-          </TableRow>
-          <TableRow v-else-if="topSpacerHeight > 0" aria-hidden="true">
-            <TableCell
-              :style="{ height: `${topSpacerHeight}px`, padding: 0, border: 'none' }"
-              colspan="5"
-            />
-          </TableRow>
-          <TableRow
-            v-for="row in visibleRows"
-            :key="row.date"
-            class="cursor-pointer transition-colors duration-150 even:bg-muted/20 hover:bg-primary/5"
-            :class="getRowHighlightClass(row)"
-            @click="openRow(row)"
-          >
-            <TableCell class="font-medium">
-              <div class="flex items-center gap-1.5">
-                {{ formatDateShort(row.date) }}
-                <Badge
-                  v-if="getFoodCount(row.date) > 0"
-                  variant="secondary"
-                  class="px-1.5 py-0 text-[10px]"
-                >
-                  {{ getFoodCount(row.date) }} items
-                </Badge>
-              </div>
-            </TableCell>
-            <TableCell>
-              <span v-if="row.consumedKcal !== null" :class="getConsumedClass(row)">
-                {{ row.consumedKcal }}
-              </span>
-              <span v-else class="text-muted-foreground">—</span>
-            </TableCell>
-            <TableCell>
-              <div class="flex items-center gap-1.5">
-                <span v-if="row.goalKcal !== null">{{ row.goalKcal }}</span>
-                <span v-else class="text-muted-foreground">—</span>
-                <Badge
-                  v-if="row.goalSource === 'override'"
-                  variant="secondary"
-                  class="px-1.5 py-0 text-[10px]"
-                >
-                  custom
-                </Badge>
-              </div>
-            </TableCell>
-            <TableCell>
-              <template v-if="row.consumedKcal !== null && row.goalKcal !== null">
-                <Badge v-if="getStatus(row)" class="text-xs" :class="getStatus(row)?.badgeClass">
-                  {{ getStatus(row)?.label }}
-                </Badge>
-              </template>
-              <span v-else class="text-xs text-muted-foreground">—</span>
-            </TableCell>
-            <TableCell class="text-right">
-              <button
-                type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground"
-                @click.stop="openEditFromBreakdown(row)"
-              >
-                <Icon icon="lucide:pencil" class="h-4 w-4" />
-              </button>
-            </TableCell>
-          </TableRow>
-          <TableRow v-if="rows.length > 0 && bottomSpacerHeight > 0" aria-hidden="true">
-            <TableCell
-              :style="{ height: `${bottomSpacerHeight}px`, padding: 0, border: 'none' }"
-              colspan="5"
-            />
-          </TableRow>
-        </TableBody>
-      </Table>
+    <!-- Empty state (shared) -->
+    <div v-if="rows.length === 0" class="py-12 text-center">
+      <div class="flex flex-col items-center gap-2">
+        <Icon
+          icon="lucide:utensils"
+          class="h-12 w-12 text-muted-foreground/25 animate-gentle-bob"
+        />
+        <p class="text-sm font-medium text-foreground/70">No calorie entries yet</p>
+        <p class="text-xs text-muted-foreground">Log your first meal to start tracking</p>
+      </div>
     </div>
+
+    <template v-else>
+      <!-- Mobile: card list -->
+      <div class="max-h-[500px] space-y-2 overflow-auto lg:hidden">
+        <div
+          v-for="row in rows"
+          :key="row.date"
+          class="flex cursor-pointer items-center justify-between rounded-xl border border-border/50 bg-card p-4 transition-colors"
+          :class="getRowHighlightClass(row)"
+          @click="openRow(row)"
+        >
+          <div class="flex items-center gap-3">
+            <div
+              class="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+            >
+              <Icon icon="lucide:utensils" class="size-5" />
+            </div>
+            <div class="min-w-0">
+              <p class="text-sm font-medium">{{ formatDateShort(row.date) }}</p>
+              <Badge
+                v-if="getFoodCount(row.date) > 0"
+                variant="secondary"
+                class="mt-0.5 px-1.5 py-0 text-[10px]"
+              >
+                {{ getFoodCount(row.date) }} items
+              </Badge>
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <div class="text-right">
+              <p v-if="row.consumedKcal !== null" class="text-sm" :class="getConsumedClass(row)">
+                {{ row.consumedKcal }} <span class="text-xs text-muted-foreground">kcal</span>
+              </p>
+              <p v-else class="text-sm text-muted-foreground">—</p>
+              <p class="text-xs text-muted-foreground">
+                <template v-if="row.goalKcal !== null">Goal: {{ row.goalKcal }}</template>
+                <template v-else>No goal</template>
+              </p>
+              <Badge
+                v-if="row.consumedKcal !== null && row.goalKcal !== null && getStatus(row)"
+                class="mt-0.5 text-[10px]"
+                :class="getStatus(row)?.badgeClass"
+              >
+                {{ getStatus(row)?.label }}
+              </Badge>
+            </div>
+            <button
+              type="button"
+              class="inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+              @click.stop="openEditFromBreakdown(row)"
+            >
+              <Icon icon="lucide:pencil" class="size-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop: table -->
+      <div
+        ref="scrollContainerRef"
+        class="hidden max-h-[500px] overflow-auto rounded-lg border border-border lg:block"
+        @scroll="onScroll"
+      >
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Consumed (kcal)</TableHead>
+              <TableHead>Goal (kcal)</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead class="text-right">Edit</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-if="topSpacerHeight > 0" aria-hidden="true">
+              <TableCell
+                :style="{ height: `${topSpacerHeight}px`, padding: 0, border: 'none' }"
+                colspan="5"
+              />
+            </TableRow>
+            <TableRow
+              v-for="row in visibleRows"
+              :key="row.date"
+              class="cursor-pointer transition-colors duration-150 even:bg-muted/20 hover:bg-primary/5"
+              :class="getRowHighlightClass(row)"
+              @click="openRow(row)"
+            >
+              <TableCell class="font-medium">
+                <div class="flex items-center gap-1.5">
+                  {{ formatDateShort(row.date) }}
+                  <Badge
+                    v-if="getFoodCount(row.date) > 0"
+                    variant="secondary"
+                    class="px-1.5 py-0 text-[10px]"
+                  >
+                    {{ getFoodCount(row.date) }} items
+                  </Badge>
+                </div>
+              </TableCell>
+              <TableCell>
+                <span v-if="row.consumedKcal !== null" :class="getConsumedClass(row)">
+                  {{ row.consumedKcal }}
+                </span>
+                <span v-else class="text-muted-foreground">—</span>
+              </TableCell>
+              <TableCell>
+                <div class="flex items-center gap-1.5">
+                  <span v-if="row.goalKcal !== null">{{ row.goalKcal }}</span>
+                  <span v-else class="text-muted-foreground">—</span>
+                  <Badge
+                    v-if="row.goalSource === 'override'"
+                    variant="secondary"
+                    class="px-1.5 py-0 text-[10px]"
+                  >
+                    custom
+                  </Badge>
+                </div>
+              </TableCell>
+              <TableCell>
+                <template v-if="row.consumedKcal !== null && row.goalKcal !== null">
+                  <Badge v-if="getStatus(row)" class="text-xs" :class="getStatus(row)?.badgeClass">
+                    {{ getStatus(row)?.label }}
+                  </Badge>
+                </template>
+                <span v-else class="text-xs text-muted-foreground">—</span>
+              </TableCell>
+              <TableCell class="text-right">
+                <button
+                  type="button"
+                  class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-background hover:text-foreground"
+                  @click.stop="openEditFromBreakdown(row)"
+                >
+                  <Icon icon="lucide:pencil" class="h-4 w-4" />
+                </button>
+              </TableCell>
+            </TableRow>
+            <TableRow v-if="bottomSpacerHeight > 0" aria-hidden="true">
+              <TableCell
+                :style="{ height: `${bottomSpacerHeight}px`, padding: 0, border: 'none' }"
+                colspan="5"
+              />
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+    </template>
 
     <EditCaloriesDayDialog v-model:open="editDialogOpen" :row="selectedRow" />
     <DailyFoodBreakdown
@@ -263,6 +321,7 @@ function onAddFood(mealType: MealType) {
       v-model:open="logFoodOpen"
       :initial-date="logFoodDate"
       :initial-meal-type="logFoodMealType"
+      hide-trigger
     />
   </div>
 </template>

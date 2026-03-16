@@ -32,6 +32,20 @@ import FoodItemCard from './FoodItemCard.vue'
 const props = defineProps<{
   initialDate?: string
   initialMealType?: MealType
+  hideTrigger?: boolean
+  initialBarcode?: string
+  initialLabelResult?: {
+    barcode: string
+    name: string
+    brand: string
+    caloriesPer100g: number
+    proteinPer100g: number
+    carbsPer100g: number
+    fatPer100g: number
+    servingG: number
+    offId: string
+    nutritionPer?: number
+  }
 }>()
 
 const foodStore = useFoodStore()
@@ -124,6 +138,17 @@ function onOpenChange(value: boolean) {
   open.value = value
   if (value) resetForm()
 }
+
+// When opened with pre-scanned data, auto-trigger the scan handler after reset
+watch(open, (isOpen) => {
+  if (!isOpen) return
+  resetForm()
+  if (props.initialBarcode) {
+    void onBarcodeScanned(props.initialBarcode)
+  } else if (props.initialLabelResult) {
+    onLabelScanned(props.initialLabelResult)
+  }
+})
 
 function selectPersonalFood(item: FoodItem) {
   selectedFood.value = item
@@ -264,7 +289,7 @@ const recentFoodsForDisplay = computed(() => foodStore.recentFoods.slice(0, 6))
 
 <template>
   <Dialog :open="open" @update:open="onOpenChange">
-    <DialogTrigger as-child>
+    <DialogTrigger v-if="!hideTrigger" as-child>
       <Button>
         <Icon icon="lucide:plus" class="mr-2 h-4 w-4" />
         Log Food

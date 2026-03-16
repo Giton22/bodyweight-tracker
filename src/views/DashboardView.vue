@@ -1,72 +1,108 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { Swiper, SwiperSlide } from 'swiper/vue'
-import { A11y } from 'swiper/modules'
-import type { Swiper as SwiperInstance } from 'swiper'
-import WeightSection from '@/components/dashboard/WeightSection.vue'
-import KcalSection from '@/components/dashboard/KcalSection.vue'
+import { computed } from 'vue'
+import { useWeightStore } from '@/stores/weight'
+import { useFoodStore } from '@/stores/food'
+import { Card, CardContent } from '@/components/ui/card'
+import BmiHalfCircleGauge from '@/components/dashboard/BmiHalfCircleGauge.vue'
+import CaloriesDonutChart from '@/components/dashboard/CaloriesDonutChart.vue'
+import MacroProgressBars from '@/components/dashboard/MacroProgressBars.vue'
+import WeightTrendBarChart from '@/components/dashboard/WeightTrendBarChart.vue'
+import WeightGoalSummary from '@/components/dashboard/WeightGoalSummary.vue'
 
-import 'swiper/css'
+const weightStore = useWeightStore()
+const foodStore = useFoodStore()
 
-const activeIndex = ref(0)
-const swiperInstance = ref<SwiperInstance | null>(null)
+const todaySummary = computed(() => weightStore.todayCalorieSummary)
+const consumed = computed(() => todaySummary.value?.consumedKcal ?? 0)
+const goal = computed(() => todaySummary.value?.goalKcal ?? 2000)
 
-function onSwiper(swiper: SwiperInstance) {
-  swiperInstance.value = swiper
-}
-
-function onSlideChange(swiper: SwiperInstance) {
-  activeIndex.value = swiper.activeIndex
-}
-
-function goToSlide(index: number) {
-  swiperInstance.value?.slideTo(index)
-}
+const todayMacros = computed(() => {
+  const s = foodStore.todayFoodSummary
+  return {
+    protein: s?.totalProtein ?? 0,
+    carbs: s?.totalCarbs ?? 0,
+    fat: s?.totalFat ?? 0,
+  }
+})
 </script>
 
 <template>
-  <div>
-    <!-- Mobile: swipeable slides (hidden on lg+) -->
-    <div class="lg:hidden">
-      <Swiper
-        :modules="[A11y]"
-        :slides-per-view="1"
-        :space-between="0"
-        class="dashboard-swiper"
-        @swiper="onSwiper"
-        @slide-change="onSlideChange"
-      >
-        <SwiperSlide>
-          <div class="px-4 pb-16 pt-6 sm:px-6">
-            <WeightSection />
-          </div>
-        </SwiperSlide>
-        <SwiperSlide>
-          <div class="px-4 pb-16 pt-6 sm:px-6">
-            <KcalSection />
-          </div>
-        </SwiperSlide>
-      </Swiper>
-
-      <!-- Fixed dot indicator — always visible at bottom of screen -->
-      <div
-        class="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-2 pb-safe py-3 lg:hidden bg-background/70 backdrop-blur-md border-t border-border/30"
-      >
-        <button
-          v-for="(_, i) in 2"
-          :key="i"
-          class="dashboard-dot"
-          :class="{ 'dashboard-dot--active': activeIndex === i }"
-          :aria-label="`Go to ${i === 0 ? 'Weight' : 'Calories'} section`"
-          @click="goToSlide(i)"
-        />
+  <div class="p-4 lg:p-8">
+    <div class="mx-auto max-w-7xl space-y-6 lg:space-y-8">
+      <!-- Page heading (desktop only) -->
+      <div class="hidden lg:block">
+        <h2 class="text-3xl font-black tracking-tight">Health Dashboard</h2>
+        <p class="text-muted-foreground">Welcome back! Here's your health overview for today.</p>
       </div>
-    </div>
 
-    <!-- Desktop: side-by-side 50/50 layout (hidden below lg) -->
-    <div class="mx-auto hidden max-w-[1600px] gap-6 px-6 py-6 lg:grid lg:grid-cols-2">
-      <WeightSection />
-      <KcalSection />
+      <!-- Top Row: BMI | Macros + Calories Donut -->
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+        <!-- BMI Gauge Card -->
+        <Card class="animate-card-enter shadow-warm">
+          <CardContent class="flex flex-col items-center justify-between pt-6">
+            <div class="mb-4 flex w-full items-center justify-between">
+              <h3 class="text-lg font-bold">Current BMI</h3>
+              <span
+                v-if="weightStore.bmiCategory"
+                class="text-sm font-medium"
+                :class="weightStore.bmiCategory.textColorClass"
+              >
+                {{ weightStore.bmiCategory.shortLabel }}
+              </span>
+            </div>
+            <BmiHalfCircleGauge
+              :bmi="weightStore.bmi"
+              :category="weightStore.bmiCategory?.shortLabel"
+            />
+            <p
+              v-if="weightStore.bmi !== null"
+              class="mt-4 text-center text-sm text-muted-foreground"
+            >
+              Your BMI is in the
+              <span class="font-semibold" :class="weightStore.bmiCategory?.textColorClass">
+                {{ weightStore.bmiCategory?.shortLabel?.toLowerCase() }}
+              </span>
+              range.
+            </p>
+            <p v-else class="mt-4 text-center text-sm text-muted-foreground">
+              Log weight and set height to see your BMI.
+            </p>
+          </CardContent>
+        </Card>
+
+        <!-- Daily Calories Card (macro bars + donut) -->
+        <Card class="animate-card-enter shadow-warm lg:col-span-2" style="animation-delay: 50ms">
+          <CardContent class="flex flex-col gap-6 pt-6 md:flex-row md:gap-8">
+            <!-- Macro bars -->
+            <div class="flex-1">
+              <h3 class="mb-6 text-lg font-bold">Daily Calories</h3>
+              <MacroProgressBars
+                :protein="todayMacros.protein"
+                :carbs="todayMacros.carbs"
+                :fat="todayMacros.fat"
+              />
+            </div>
+            <!-- Donut chart -->
+            <div
+              class="flex flex-col items-center justify-center border-t border-border pt-6 md:min-w-[200px] md:border-l md:border-t-0 md:pl-8 md:pt-0"
+            >
+              <CaloriesDonutChart :consumed="consumed" :goal="goal" />
+              <p class="mt-2 text-sm font-semibold">Goal: {{ goal.toLocaleString() }} kcal</p>
+              <p class="text-xs text-muted-foreground">
+                {{ goal > 0 ? Math.round((consumed / goal) * 100) : 0 }}% of daily target
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <!-- Weight Trend Bar Chart -->
+      <Card class="animate-card-enter shadow-warm" style="animation-delay: 100ms">
+        <CardContent class="pt-6">
+          <WeightTrendBarChart />
+          <WeightGoalSummary class="mt-6" />
+        </CardContent>
+      </Card>
     </div>
   </div>
 </template>

@@ -19,10 +19,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 
+const props = defineProps<{
+  hideTrigger?: boolean
+}>()
+
 const store = useWeightStore()
 const { isKg, convert, toKg } = useUnits()
 
-const open = ref(false)
+const open = defineModel<boolean>('open', { default: false })
 const date = ref(todayISO())
 const weightField = useNumericField({ min: 1, required: true })
 const note = ref('')
@@ -85,7 +89,7 @@ async function submit() {
 
 <template>
   <Dialog v-model:open="open">
-    <DialogTrigger as-child>
+    <DialogTrigger v-if="!hideTrigger" as-child>
       <Button>
         <Icon icon="lucide:plus" class="mr-2 h-4 w-4" />
         Log Weight
