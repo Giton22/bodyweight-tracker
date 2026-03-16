@@ -1,4 +1,4 @@
-module bodyweight-tracker
+module slimrr
 
 go 1.25.0
 

@@ -3,7 +3,7 @@ package main
 import (
 	"log"
 
-	"bodyweight-tracker/pb"
+	"slimrr/pb"
 )
 
 func main() {

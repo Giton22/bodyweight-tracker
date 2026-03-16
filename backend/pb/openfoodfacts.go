@@ -100,7 +100,7 @@ func registerFoodApiRoutes(se *core.ServeEvent) {
 		if err != nil {
 			return e.InternalServerError("failed to create request", err)
 		}
-		req.Header.Set("User-Agent", "bodyweight-tracker/1.0 (food search)")
+		req.Header.Set("User-Agent", "slimrr/1.0 (food search)")
 
 		resp, err := httpClient.Do(req)
 		if err != nil {
@@ -175,7 +175,7 @@ func registerFoodApiRoutes(se *core.ServeEvent) {
 		if err != nil {
 			return e.InternalServerError("failed to create request", err)
 		}
-		req.Header.Set("User-Agent", "bodyweight-tracker/1.0 (barcode lookup)")
+		req.Header.Set("User-Agent", "slimrr/1.0 (barcode lookup)")
 
 		resp, err := httpClient.Do(req)
 		if err != nil {

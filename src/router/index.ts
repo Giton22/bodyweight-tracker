@@ -10,7 +10,7 @@ declare module 'vue-router' {
   }
 }
 
-const APP_TITLE = 'Bodyweight Tracker'
+const APP_TITLE = 'Slimrr'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

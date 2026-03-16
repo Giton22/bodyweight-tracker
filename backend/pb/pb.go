@@ -10,7 +10,7 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
 	// Register migrations
-	_ "bodyweight-tracker/migrations"
+	_ "slimrr/migrations"
 )
 
 //go:embed all:pb_public

@@ -1,8 +1,8 @@
 services:
-  bodyweight-tracker:
-    image: ghcr.io/giton22/bodyweight-tracker:latest
+  slimrr:
+    image: ghcr.io/giton22/slimrr:latest
     pull_policy: always
-    container_name: bodyweight-tracker
+    container_name: slimrr
     user: '568:568'
     restart: unless-stopped
 
@@ -15,7 +15,7 @@ services:
 
     volumes:
       # IMPORTANT: Update the host path to your TrueNAS dataset
-      - /mnt/tank/apps/bodyweight-tracker/pb_data:/pb/pb_data:rw
+      - /mnt/tank/apps/slimrr/pb_data:/pb/pb_data:rw
 
     healthcheck:
       test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:8090/api/health']

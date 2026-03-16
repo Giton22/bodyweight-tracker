@@ -1,7 +1,7 @@
 services:
-  bodyweight-tracker:
-    image: ghcr.io/giton22/bodyweight-tracker:latest
-    container_name: bodyweight-tracker
+  slimrr:
+    image: ghcr.io/giton22/slimrr:latest
+    container_name: slimrr
     restart: unless-stopped
     ports:
       - '8090:8090'

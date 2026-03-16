@@ -37,22 +37,22 @@ COPY backend/ .
 COPY --from=frontend /app/dist ./pb/pb_public/
 
 # Build static binary
-RUN CGO_ENABLED=0 go build -o bodyweight-tracker .
+RUN CGO_ENABLED=0 go build -o slimrr .
 
 # ── Stage 3: Runtime ────────────────────────────────────────────────────────
 FROM alpine:3
 
-LABEL org.opencontainers.image.title="Bodyweight Tracker"
-LABEL org.opencontainers.image.description="Self-hosted bodyweight and calorie tracking app"
-LABEL org.opencontainers.image.source="https://github.com/Giton22/bodyweight-tracker"
+LABEL org.opencontainers.image.title="Slimrr"
+LABEL org.opencontainers.image.description="Self-hosted weight and calorie tracking app"
+LABEL org.opencontainers.image.source="https://github.com/Giton22/slimrr"
 LABEL org.opencontainers.image.licenses="MIT"
 
 RUN apk add --no-cache ca-certificates wget
 
 WORKDIR /pb
 
-COPY --from=backend /build/bodyweight-tracker /pb/bodyweight-tracker
+COPY --from=backend /build/slimrr /pb/slimrr
 
 EXPOSE 8090
 
-ENTRYPOINT ["/pb/bodyweight-tracker", "serve", "--http=0.0.0.0:8090", "--dir=/pb/pb_data"]
+ENTRYPOINT ["/pb/slimrr", "serve", "--http=0.0.0.0:8090", "--dir=/pb/pb_data"]

@@ -7,8 +7,8 @@
 # Self-hosters should use docker-compose.yml on its own (pulls the pre-built image).
 
 services:
-  bodyweight-tracker:
-    image: bodyweight-tracker:dev
+  slimrr:
+    image: slimrr:dev
     build:
       context: .
       dockerfile: Dockerfile

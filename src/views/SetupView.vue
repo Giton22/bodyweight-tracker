@@ -147,7 +147,7 @@ function goToDashboard() {
           </div>
           <CardTitle class="text-2xl">Welcome</CardTitle>
           <CardDescription class="text-base">
-            Let's get your Bodyweight Tracker set up. This only takes a minute.
+            Let's get your Slimrr account set up. This only takes a minute.
           </CardDescription>
         </CardHeader>
         <CardContent class="flex flex-col gap-4">

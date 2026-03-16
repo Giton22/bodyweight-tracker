@@ -66,7 +66,7 @@ async function submit() {
           {{ mode === 'login' ? 'Welcome back' : 'Create account' }}
         </CardTitle>
         <CardDescription>
-          {{ mode === 'login' ? 'Sign in to your bodyweight tracker' : 'Set up a new account' }}
+          {{ mode === 'login' ? 'Sign in to your Slimrr account' : 'Set up a new account' }}
         </CardDescription>
       </CardHeader>
       <CardContent>

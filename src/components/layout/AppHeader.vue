@@ -27,7 +27,7 @@ function logout() {
     <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
       <RouterLink to="/" class="flex items-center gap-2 cursor-pointer">
         <Icon icon="lucide:scale" class="h-6 w-6 text-primary" />
-        <h1 class="text-lg font-semibold text-primary">Bodyweight Tracker</h1>
+        <h1 class="text-lg font-semibold text-primary">Slimrr</h1>
       </RouterLink>
       <nav v-if="auth.isAuthenticated" class="ml-6 hidden sm:flex items-center gap-4">
         <RouterLink
