@@ -7,7 +7,12 @@ const route = useRoute()
 const haptics = useHaptics()
 
 const navItems = [
-  { to: '/', icon: 'lucide:layout-grid', activeIcon: 'lucide:layout-grid', label: 'Dashboard' },
+  {
+    to: '/',
+    icon: 'lucide:layout-grid',
+    activeIcon: 'lucide:layout-grid',
+    label: 'Dashboard',
+  },
   {
     to: '/weight',
     icon: 'lucide:trending-down',

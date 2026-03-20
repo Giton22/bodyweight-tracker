@@ -24,6 +24,7 @@ import { DialogTrigger } from '@/components/ui/dialog'
 
 const props = defineProps<{
   hideTrigger?: boolean
+  initialDate?: string
 }>()
 
 const store = useWeightStore()
@@ -48,13 +49,16 @@ watch(date, (newDate) => {
   if (existing) {
     weightField.reset(Math.round(convert(existing.weightKg) * 10) / 10)
     note.value = existing.note ?? ''
+  } else {
+    weightField.reset()
+    note.value = ''
   }
 })
 
 // Auto-focus weight input when dialog opens
 watch(open, (isOpen) => {
   if (isOpen) {
-    date.value = todayISO()
+    date.value = props.initialDate ?? todayISO()
     // Pre-fill if today already has an entry
     const existing = store.sortedEntries.find((e) => e.date === date.value)
     if (existing) {
@@ -84,7 +88,7 @@ async function submit() {
     // Reset
     weightField.reset()
     note.value = ''
-    date.value = todayISO()
+    date.value = props.initialDate ?? todayISO()
     open.value = false
   } catch {
     toast.error('Failed to save weight entry')

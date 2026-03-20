@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
+import { toast } from 'vue-sonner'
 import type { FoodLogEntry, MealType, DailyFoodSummary } from '@/types'
 import { useFoodStore } from '@/stores/food'
 import { formatDateLong } from '@/lib/date'
@@ -40,6 +41,35 @@ function openEditEntry(entry: FoodLogEntry) {
   editingEntry.value = entry
   editDialogOpen.value = true
 }
+
+async function deleteEntry(entry: FoodLogEntry) {
+  try {
+    await foodStore.deleteFoodLogEntry(entry.id)
+    toast.success('Entry deleted')
+  } catch {
+    toast.error('Failed to delete entry')
+  }
+}
+
+async function duplicateEntry(entry: FoodLogEntry) {
+  try {
+    const matchedFood = entry.foodItem
+      ? (foodStore.foodItems.find((item) => item.id === entry.foodItem) ?? null)
+      : null
+
+    await foodStore.logFood(entry.date, entry.mealType, matchedFood, entry.amountG, {
+      calories: entry.calories,
+      protein: entry.protein ?? 0,
+      carbs: entry.carbs ?? 0,
+      fat: entry.fat ?? 0,
+      note: entry.note,
+    })
+
+    toast.success('Entry duplicated')
+  } catch {
+    toast.error('Failed to duplicate entry')
+  }
+}
 </script>
 
 <template>
@@ -61,6 +91,8 @@ function openEditEntry(entry: FoodLogEntry) {
             :entries="summary.meals[mt]"
             @edit-entry="openEditEntry"
             @add-food="$emit('addFood', $event)"
+            @delete-entry="deleteEntry"
+            @duplicate-entry="duplicateEntry"
           />
 
           <!-- Grand total -->

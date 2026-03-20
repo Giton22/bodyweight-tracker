@@ -6,7 +6,6 @@ import { toast } from 'vue-sonner'
 import { useWeightStore } from '@/stores/weight'
 import { useFoodStore } from '@/stores/food'
 import { today } from '@/composables/useToday'
-import { usePullToRefresh } from '@/composables/usePullToRefresh'
 import { useSwipeDayNavigation } from '@/composables/useSwipeDayNavigation'
 import { addDays, formatDateShort } from '@/lib/date'
 import { Card, CardContent } from '@/components/ui/card'
@@ -137,13 +136,7 @@ async function duplicateEntry(entry: FoodLogEntry) {
   }
 }
 
-// Pull-to-refresh
 const containerRef = ref<HTMLElement | null>(null)
-const { pullDistance, isRefreshing } = usePullToRefresh(containerRef, {
-  async onRefresh() {
-    await foodStore.loadFoodData()
-  },
-})
 
 // Swipe between days
 const swipeDirection = ref<'left' | 'right' | null>(null)
@@ -163,19 +156,6 @@ const recentFoods = computed(() => foodStore.recentFoods.slice(0, 8))
 
 <template>
   <div ref="containerRef" class="p-4 lg:p-8">
-    <!-- Pull-to-refresh indicator -->
-    <div
-      v-if="pullDistance > 0 || isRefreshing"
-      class="flex items-center justify-center pb-2 lg:hidden"
-      :style="{ height: `${Math.max(pullDistance, isRefreshing ? 40 : 0)}px` }"
-    >
-      <Icon
-        icon="lucide:loader-circle"
-        class="size-5 text-primary"
-        :class="{ 'animate-spin': isRefreshing }"
-      />
-    </div>
-
     <div class="mx-auto max-w-7xl">
       <!-- Desktop heading -->
       <div class="mb-6 hidden lg:block">

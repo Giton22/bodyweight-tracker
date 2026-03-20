@@ -1,243 +1,284 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Icon } from '@iconify/vue'
-import draggable from 'vuedraggable'
+import { RouterLink } from 'vue-router'
 import { useWeightStore } from '@/stores/weight'
 import { useFoodStore } from '@/stores/food'
-import { usePullToRefresh } from '@/composables/usePullToRefresh'
-import { useDashboardLayout } from '@/composables/useDashboardLayout'
-import { Card, CardContent } from '@/components/ui/card'
-import BmiHalfCircleGauge from '@/components/dashboard/BmiHalfCircleGauge.vue'
-import CaloriesDonutChart from '@/components/dashboard/CaloriesDonutChart.vue'
-import MacroProgressBars from '@/components/dashboard/MacroProgressBars.vue'
-import WeightTrendBarChart from '@/components/dashboard/WeightTrendBarChart.vue'
-import WeightGoalSummary from '@/components/dashboard/WeightGoalSummary.vue'
+import { today } from '@/composables/useToday'
+import { useSwipeDayNavigation } from '@/composables/useSwipeDayNavigation'
+import { useUnits } from '@/composables/useUnits'
+import { addDays, formatDateLong, formatDateShort } from '@/lib/date'
+import type { FoodLogEntry, MealType, WeightEntry } from '@/types'
 import DashboardSkeleton from '@/components/dashboard/skeletons/DashboardSkeleton.vue'
 import StreakCard from '@/components/dashboard/StreakCard.vue'
+import LogFoodDialog from '@/components/dashboard/food/LogFoodDialog.vue'
+import EditFoodLogDialog from '@/components/dashboard/food/EditFoodLogDialog.vue'
+import DailyFoodBreakdown from '@/components/dashboard/food/DailyFoodBreakdown.vue'
+import LogWeightDialog from '@/components/dashboard/LogWeightDialog.vue'
+import EditWeightDialog from '@/components/dashboard/EditWeightDialog.vue'
+import DiaryHeader from '@/components/dashboard/diary/DiaryHeader.vue'
+import DiarySummaryCard from '@/components/dashboard/diary/DiarySummaryCard.vue'
+import DiaryMealsCard from '@/components/dashboard/diary/DiaryMealsCard.vue'
+import DiaryWeightCard from '@/components/dashboard/diary/DiaryWeightCard.vue'
 
 const weightStore = useWeightStore()
 const foodStore = useFoodStore()
+const { format } = useUnits()
 
-const todaySummary = computed(() => weightStore.todayCalorieSummary)
-const consumed = computed(() => todaySummary.value?.consumedKcal ?? 0)
-const goal = computed(() => todaySummary.value?.goalKcal ?? 2000)
+const selectedDate = ref(today.value)
+const isToday = computed(() => selectedDate.value === today.value)
 
-const todayMacros = computed(() => {
-  const s = foodStore.todayFoodSummary
-  return {
-    protein: s?.totalProtein ?? 0,
-    carbs: s?.totalCarbs ?? 0,
-    fat: s?.totalFat ?? 0,
-  }
+function prevDay() {
+  selectedDate.value = addDays(selectedDate.value, -1)
+}
+
+function nextDay() {
+  selectedDate.value = addDays(selectedDate.value, 1)
+}
+
+function goToday() {
+  selectedDate.value = today.value
+}
+
+function getIsoWeek(dateStr: string) {
+  const date = new Date(`${dateStr}T12:00:00`)
+  const day = date.getDay() || 7
+  date.setDate(date.getDate() + 4 - day)
+  const yearStart = new Date(date.getFullYear(), 0, 1)
+  const week = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return week
+}
+
+const headerTitle = computed(() => {
+  if (selectedDate.value === today.value) return 'Today'
+  if (selectedDate.value === addDays(today.value, -1)) return 'Yesterday'
+  if (selectedDate.value === addDays(today.value, 1)) return 'Tomorrow'
+  return formatDateShort(selectedDate.value)
 })
 
-// Dashboard layout
-const {
-  layout,
-  isEditMode,
-  visibleWidgets,
-  toggleVisibility,
-  resetLayout,
-  enterEditMode,
-  exitEditMode,
-} = useDashboardLayout()
+const headerSubtitle = computed(
+  () => `Week ${getIsoWeek(selectedDate.value)} · ${formatDateLong(selectedDate.value)}`,
+)
 
-const allHidden = computed(() => visibleWidgets.value.length === 0 && !isEditMode.value)
+const daySummary = computed(() => {
+  return weightStore.dailyCalorieRows.find((row) => row.date === selectedDate.value) ?? null
+})
 
-// Pull-to-refresh (disabled in edit mode)
+const consumed = computed(() => daySummary.value?.consumedKcal ?? 0)
+const goal = computed(() => daySummary.value?.goalKcal ?? 2000)
+
+const dailyFoodSummary = computed(
+  () => foodStore.dailyFoodSummaries.get(selectedDate.value) ?? null,
+)
+const meals = computed<Record<MealType, FoodLogEntry[]>>(() => ({
+  breakfast: dailyFoodSummary.value?.meals.breakfast ?? [],
+  lunch: dailyFoodSummary.value?.meals.lunch ?? [],
+  dinner: dailyFoodSummary.value?.meals.dinner ?? [],
+  snack: dailyFoodSummary.value?.meals.snack ?? [],
+}))
+
+const selectedWeightEntry = computed<WeightEntry | null>(() => {
+  return weightStore.sortedEntries.find((entry) => entry.date === selectedDate.value) ?? null
+})
+
+const displayedWeight = computed(() => {
+  if (selectedWeightEntry.value) return format(selectedWeightEntry.value.weightKg)
+  return 'No entry'
+})
+
+const latestWeight = computed(() => {
+  if (!weightStore.latestEntry) return null
+  return weightStore.latestEntry ? format(weightStore.latestEntry.weightKg) : null
+})
+
+const selectedWeightLabel = computed(() => {
+  if (isToday.value) return 'For today'
+  return `For ${formatDateShort(selectedDate.value)}`
+})
+
+const logFoodOpen = ref(false)
+const logFoodInitialMeal = ref<MealType | undefined>(undefined)
+const editFoodOpen = ref(false)
+const editingFoodEntry = ref<FoodLogEntry | null>(null)
+const foodBreakdownOpen = ref(false)
+
+const logWeightOpen = ref(false)
+const editWeightOpen = ref(false)
+
+function openAddFood(mealType: MealType) {
+  logFoodInitialMeal.value = mealType
+  logFoodOpen.value = true
+}
+
+function openMealBreakdown() {
+  foodBreakdownOpen.value = true
+}
+
+function onLogFoodClosed(isOpen: boolean) {
+  logFoodOpen.value = isOpen
+  if (!isOpen) {
+    logFoodInitialMeal.value = undefined
+  }
+}
+
+function openEditFood(entry: FoodLogEntry) {
+  editingFoodEntry.value = entry
+  editFoodOpen.value = true
+}
+
+function openWeightLogger() {
+  logWeightOpen.value = true
+}
+
+function openWeightEditor() {
+  if (!selectedWeightEntry.value) return
+  editWeightOpen.value = true
+}
+
 const containerRef = ref<HTMLElement | null>(null)
-const { pullDistance, isRefreshing } = usePullToRefresh(containerRef, {
-  async onRefresh() {
-    if (isEditMode.value) return
-    await Promise.all([weightStore.loadAll(), foodStore.loadFoodData()])
+
+const swipeDirection = ref<'left' | 'right' | null>(null)
+const { offsetX, onTouchStart, onTouchMove, onTouchEnd } = useSwipeDayNavigation(containerRef, {
+  onPrev() {
+    swipeDirection.value = 'right'
+    prevDay()
+  },
+  onNext() {
+    swipeDirection.value = 'left'
+    nextDay()
   },
 })
 
-function onDragStart() {
-  if (navigator.vibrate) {
-    navigator.vibrate(10)
-  }
-}
+const macroGoals = computed(() => ({
+  protein: weightStore.settings.proteinGoalG ?? 150,
+  carbs: weightStore.settings.carbsGoalG ?? 250,
+  fat: weightStore.settings.fatGoalG ?? 65,
+}))
 </script>
 
 <template>
-  <div ref="containerRef" class="p-4 lg:p-8">
-    <!-- Pull-to-refresh indicator -->
-    <div
-      v-if="(pullDistance > 0 || isRefreshing) && !isEditMode"
-      class="flex items-center justify-center pb-2 lg:hidden"
-      :style="{ height: `${Math.max(pullDistance, isRefreshing ? 40 : 0)}px` }"
-    >
-      <Icon
-        icon="lucide:loader-circle"
-        class="size-5 text-primary"
-        :class="{ 'animate-spin': isRefreshing }"
-      />
-    </div>
-
-    <div class="mx-auto max-w-7xl space-y-6 lg:space-y-8">
-      <!-- Page heading -->
-      <div class="flex items-center justify-between">
-        <div class="hidden lg:block">
-          <h2 class="text-3xl font-black tracking-tight">Health Dashboard</h2>
-          <p class="text-muted-foreground">Welcome back! Here's your health overview for today.</p>
-        </div>
-        <!-- Edit mode controls -->
-        <div v-if="weightStore.isSynced" class="ml-auto flex items-center gap-2">
-          <template v-if="isEditMode">
-            <button
-              class="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted"
-              @click="resetLayout"
-            >
-              Reset to Default
-            </button>
-            <button
-              class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-              @click="exitEditMode"
-            >
-              Done
-            </button>
-          </template>
-          <button
-            v-else
-            class="rounded-md p-2 text-muted-foreground hover:bg-muted"
-            title="Customize dashboard"
-            @click="enterEditMode"
-          >
-            <Icon icon="lucide:pencil" class="size-4" />
-          </button>
-        </div>
-      </div>
-
-      <!-- Skeleton loading state -->
+  <div
+    ref="containerRef"
+    class="min-h-full bg-background px-4 pb-8 pt-4 text-foreground lg:px-8 lg:pt-8"
+  >
+    <div class="mx-auto max-w-3xl space-y-6 lg:space-y-7">
       <DashboardSkeleton v-if="!weightStore.isSynced" />
 
-      <!-- Empty state -->
-      <div
-        v-else-if="allHidden"
-        class="flex flex-col items-center justify-center gap-4 py-16 text-center"
-      >
-        <Icon icon="lucide:layout-dashboard" class="size-12 text-muted-foreground/50" />
-        <p class="text-muted-foreground">Dashboard is empty. All widgets are hidden.</p>
-        <button
-          class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          @click="enterEditMode"
+      <template v-else>
+        <DiaryHeader
+          :title="headerTitle"
+          :subtitle="headerSubtitle"
+          :is-today="isToday"
+          @prev="prevDay"
+          @next="nextDay"
+          @today="goToday"
+        />
+
+        <div
+          class="relative overflow-hidden"
+          @touchstart.passive="onTouchStart"
+          @touchmove="onTouchMove"
+          @touchend="onTouchEnd"
         >
-          Customize Dashboard
-        </button>
-      </div>
-
-      <!-- Draggable widget list -->
-      <draggable
-        v-else-if="weightStore.isSynced"
-        v-model="layout"
-        item-key="id"
-        handle=".drag-handle"
-        :disabled="!isEditMode"
-        :animation="200"
-        ghost-class="opacity-30"
-        class="space-y-6 lg:space-y-8"
-        @start="onDragStart"
-      >
-        <template #item="{ element }">
-          <div
-            v-show="isEditMode || element.visible"
-            :class="{ 'opacity-50': !element.visible && isEditMode }"
+          <Transition
+            :name="swipeDirection === 'left' ? 'slide-left' : 'slide-right'"
+            mode="out-in"
           >
-            <!-- Widget wrapper with edit controls -->
-            <div class="relative">
-              <!-- Edit mode overlay controls -->
-              <div
-                v-if="isEditMode"
-                class="absolute -left-1 -top-1 z-10 flex items-center gap-1 rounded-md bg-background/90 p-1 shadow-sm ring-1 ring-border"
-              >
-                <button
-                  class="drag-handle cursor-grab p-1 text-muted-foreground hover:text-foreground active:cursor-grabbing"
-                >
-                  <Icon icon="lucide:grip-vertical" class="size-4" />
-                </button>
-                <button
-                  class="p-1 text-muted-foreground hover:text-foreground"
-                  :title="element.visible ? 'Hide widget' : 'Show widget'"
-                  @click="toggleVisibility(element.id)"
-                >
-                  <Icon :icon="element.visible ? 'lucide:eye' : 'lucide:eye-off'" class="size-4" />
-                </button>
-              </div>
-
-              <!-- Streak widget -->
-              <StreakCard v-if="element.id === 'streak'" />
-
-              <!-- BMI widget -->
-              <Card v-else-if="element.id === 'bmi'" class="shadow-warm">
-                <CardContent class="flex flex-col items-center justify-between pt-6">
-                  <div class="mb-4 flex w-full items-center justify-between">
-                    <h3 class="text-lg font-bold">Current BMI</h3>
-                    <span
-                      v-if="weightStore.bmiCategory"
-                      class="text-sm font-medium"
-                      :class="weightStore.bmiCategory.textColorClass"
-                    >
-                      {{ weightStore.bmiCategory.shortLabel }}
-                    </span>
-                  </div>
-                  <BmiHalfCircleGauge
-                    :bmi="weightStore.bmi"
-                    :category="weightStore.bmiCategory?.shortLabel"
-                  />
-                  <p
-                    v-if="weightStore.bmi !== null"
-                    class="mt-4 text-center text-sm text-muted-foreground"
+            <div
+              :key="selectedDate"
+              class="space-y-6"
+              :style="{
+                transform: offsetX ? `translateX(${offsetX}px)` : undefined,
+                transition: offsetX ? 'none' : undefined,
+              }"
+            >
+              <section class="space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                  <h2 class="text-3xl font-black tracking-tight text-foreground">Summary</h2>
+                  <RouterLink
+                    to="/nutrition/overview"
+                    class="text-sm font-bold text-primary transition-opacity hover:opacity-80"
                   >
-                    Your BMI is in the
-                    <span class="font-semibold" :class="weightStore.bmiCategory?.textColorClass">
-                      {{ weightStore.bmiCategory?.shortLabel?.toLowerCase() }}
-                    </span>
-                    range.
-                  </p>
-                  <p v-else class="mt-4 text-center text-sm text-muted-foreground">
-                    Log weight and set height to see your BMI.
-                  </p>
-                </CardContent>
-              </Card>
+                    Details
+                  </RouterLink>
+                </div>
 
-              <!-- Daily Calories widget -->
-              <Card v-else-if="element.id === 'daily-calories'" class="shadow-warm">
-                <CardContent class="flex flex-col gap-6 pt-6 md:flex-row md:gap-8">
-                  <div class="flex-1">
-                    <h3 class="mb-6 text-lg font-bold">Daily Calories</h3>
-                    <MacroProgressBars
-                      :protein="todayMacros.protein"
-                      :protein-goal="weightStore.settings.proteinGoalG ?? 150"
-                      :carbs="todayMacros.carbs"
-                      :carbs-goal="weightStore.settings.carbsGoalG ?? 250"
-                      :fat="todayMacros.fat"
-                      :fat-goal="weightStore.settings.fatGoalG ?? 65"
-                    />
-                  </div>
-                  <div
-                    class="flex flex-col items-center justify-center border-t border-border pt-6 md:min-w-[200px] md:border-l md:border-t-0 md:pl-8 md:pt-0"
+                <DiarySummaryCard
+                  :consumed="consumed"
+                  :goal="goal"
+                  :protein="dailyFoodSummary?.totalProtein ?? 0"
+                  :protein-goal="macroGoals.protein"
+                  :carbs="dailyFoodSummary?.totalCarbs ?? 0"
+                  :carbs-goal="macroGoals.carbs"
+                  :fat="dailyFoodSummary?.totalFat ?? 0"
+                  :fat-goal="macroGoals.fat"
+                />
+              </section>
+
+              <section class="space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                  <h2 class="text-3xl font-black tracking-tight text-foreground">Nutrition</h2>
+                  <RouterLink
+                    to="/nutrition"
+                    class="text-sm font-bold text-primary transition-opacity hover:opacity-80"
                   >
-                    <CaloriesDonutChart :consumed="consumed" :goal="goal" />
-                    <p class="mt-2 text-sm font-semibold">Goal: {{ goal.toLocaleString() }} kcal</p>
-                    <p class="text-xs text-muted-foreground">
-                      {{ goal > 0 ? Math.round((consumed / goal) * 100) : 0 }}% of daily target
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
+                    More
+                  </RouterLink>
+                </div>
 
-              <!-- Weight Trend widget -->
-              <Card v-else-if="element.id === 'weight-trend'" class="shadow-warm">
-                <CardContent class="pt-6">
-                  <WeightTrendBarChart />
-                  <WeightGoalSummary class="mt-6" />
-                </CardContent>
-              </Card>
+                <DiaryMealsCard :meals="meals" @add="openAddFood" @open="openMealBreakdown" />
+              </section>
+
+              <section class="space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                  <h2 class="text-3xl font-black tracking-tight text-foreground">Consistency</h2>
+                </div>
+                <StreakCard variant="diary" />
+              </section>
+
+              <section class="space-y-3">
+                <div class="flex items-center justify-between gap-3">
+                  <h2 class="text-3xl font-black tracking-tight text-foreground">Measurements</h2>
+                  <RouterLink
+                    to="/weight"
+                    class="text-sm font-bold text-primary transition-opacity hover:opacity-80"
+                  >
+                    More
+                  </RouterLink>
+                </div>
+
+                <DiaryWeightCard
+                  :display-value="displayedWeight"
+                  :goal-value="format(weightStore.settings.goalWeightKg)"
+                  :selected-date-label="selectedWeightLabel"
+                  :latest-value="latestWeight"
+                  :has-entry="!!selectedWeightEntry"
+                  @edit="openWeightEditor"
+                  @log="openWeightLogger"
+                />
+              </section>
             </div>
-          </div>
-        </template>
-      </draggable>
+          </Transition>
+        </div>
+      </template>
     </div>
+
+    <LogFoodDialog
+      :open="logFoodOpen"
+      :initial-date="selectedDate"
+      :initial-meal-type="logFoodInitialMeal"
+      hide-trigger
+      @update:open="onLogFoodClosed"
+    />
+
+    <EditFoodLogDialog v-model:open="editFoodOpen" :entry="editingFoodEntry" />
+
+    <DailyFoodBreakdown
+      v-model:open="foodBreakdownOpen"
+      :date="selectedDate"
+      @add-food="openAddFood"
+    />
+
+    <LogWeightDialog v-model:open="logWeightOpen" :initial-date="selectedDate" hide-trigger />
+    <EditWeightDialog v-model:open="editWeightOpen" :entry="selectedWeightEntry" />
   </div>
 </template>
