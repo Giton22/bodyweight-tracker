@@ -30,6 +30,11 @@ const macros = computed(() => [
     color: 'bg-purple-400',
   },
 ])
+
+function progressWidth(value: number, goal: number) {
+  if (goal <= 0) return '0%'
+  return `${Math.min(100, (value / goal) * 100)}%`
+}
 </script>
 
 <template>
@@ -43,7 +48,7 @@ const macros = computed(() => [
         <div
           :class="macro.color"
           class="h-full rounded-full transition-all duration-500"
-          :style="{ width: `${Math.min(100, (macro.value / macro.goal) * 100)}%` }"
+          :style="{ width: progressWidth(macro.value, macro.goal) }"
         />
       </div>
     </div>

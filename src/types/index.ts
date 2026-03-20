@@ -119,5 +119,8 @@ export interface UserSettings {
   dateOfBirth?: string // YYYY-MM-DD
   sex?: Sex
   goalDirection?: GoalDirection
+  proteinGoalG?: number
+  carbsGoalG?: number
+  fatGoalG?: number
   dashboardLayout?: { id: string; visible: boolean }[]
 }

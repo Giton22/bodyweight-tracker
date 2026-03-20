@@ -16,10 +16,7 @@ import MacroProgressBars from '@/components/dashboard/MacroProgressBars.vue'
 import MealSection from '@/components/dashboard/food/MealSection.vue'
 import LogFoodDialog from '@/components/dashboard/food/LogFoodDialog.vue'
 import EditFoodLogDialog from '@/components/dashboard/food/EditFoodLogDialog.vue'
-import QuickLogDialog from '@/components/dashboard/food/QuickLogDialog.vue'
-import BarcodeScannerDialog from '@/components/dashboard/food/BarcodeScannerDialog.vue'
-import NutritionLabelDialog from '@/components/dashboard/food/NutritionLabelDialog.vue'
-import type { FoodLogEntry, MealType } from '@/types'
+import type { FoodItem, FoodLogEntry, MealType } from '@/types'
 import NutritionLogSkeleton from '@/components/dashboard/skeletons/NutritionLogSkeleton.vue'
 
 const route = useRoute()
@@ -64,6 +61,16 @@ const dayMacros = computed(() => {
     fat: s?.totalFat ?? 0,
   }
 })
+const macroGoals = computed(() => ({
+  protein: weightStore.settings.proteinGoalG ?? 150,
+  carbs: weightStore.settings.carbsGoalG ?? 250,
+  fat: weightStore.settings.fatGoalG ?? 65,
+}))
+
+function formatNumber(value: number) {
+  const rounded = Math.round(value * 10) / 10
+  return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1)
+}
 
 const mealTypes: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack']
 
@@ -74,49 +81,27 @@ function entriesForMeal(meal: MealType) {
 // Dialog state
 const logFoodOpen = ref(false)
 const logFoodInitialMeal = ref<MealType | undefined>(undefined)
+const logFoodInitialFood = ref<FoodItem | undefined>(undefined)
 const editFoodOpen = ref(false)
 const editingFoodEntry = ref<FoodLogEntry | null>(null)
-const barcodeOpen = ref(false)
-const labelScanOpen = ref(false)
-const scannedBarcode = ref<string | undefined>(undefined)
-const scannedLabelResult = ref<
-  | {
-      barcode: string
-      name: string
-      brand: string
-      caloriesPer100g: number
-      proteinPer100g: number
-      carbsPer100g: number
-      fatPer100g: number
-      servingG: number
-      offId: string
-      nutritionPer?: number
-    }
-  | undefined
->(undefined)
-
-function onBarcodeScanned(code: string) {
-  scannedBarcode.value = code
-  scannedLabelResult.value = undefined
-  logFoodOpen.value = true
-}
-
-function onLabelScanned(result: NonNullable<typeof scannedLabelResult.value>) {
-  scannedLabelResult.value = result
-  scannedBarcode.value = undefined
-  logFoodOpen.value = true
-}
 
 function onLogFoodClosed(isOpen: boolean) {
   logFoodOpen.value = isOpen
   if (!isOpen) {
-    scannedBarcode.value = undefined
-    scannedLabelResult.value = undefined
+    logFoodInitialMeal.value = undefined
+    logFoodInitialFood.value = undefined
   }
 }
 
 function openAddFood(meal: MealType) {
   logFoodInitialMeal.value = meal
+  logFoodInitialFood.value = undefined
+  logFoodOpen.value = true
+}
+
+function openRecentFood(food: FoodItem) {
+  logFoodInitialMeal.value = undefined
+  logFoodInitialFood.value = food
   logFoodOpen.value = true
 }
 
@@ -173,22 +158,7 @@ const { offsetX, onTouchStart, onTouchMove, onTouchEnd } = useSwipeDayNavigation
   },
 })
 
-// Recent food items (from food log, deduplicated by name)
-const recentFoods = computed(() => {
-  const seen = new Set<string>()
-  const items: { name: string; amount: string; calories: number }[] = []
-  for (const entry of foodStore.foodLog) {
-    if (seen.has(entry.foodName)) continue
-    seen.add(entry.foodName)
-    items.push({
-      name: entry.foodName,
-      amount: `${entry.amountG}g`,
-      calories: entry.calories,
-    })
-    if (items.length >= 5) break
-  }
-  return items
-})
+const recentFoods = computed(() => foodStore.recentFoods.slice(0, 8))
 </script>
 
 <template>
@@ -239,218 +209,192 @@ const recentFoods = computed(() => {
         </RouterLink>
       </div>
 
-      <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
-        <!-- Main column -->
-        <div class="space-y-6 lg:col-span-8">
-          <!-- Skeleton loading state -->
-          <NutritionLogSkeleton v-if="showSkeleton" />
+      <div class="mx-auto max-w-4xl">
+        <!-- Skeleton loading state -->
+        <NutritionLogSkeleton v-if="showSkeleton" />
 
-          <!-- Date Navigator -->
-          <div v-if="!showSkeleton" class="flex items-center justify-center gap-3">
-            <Button variant="ghost" size="icon" class="size-11" @click="prevDay">
-              <Icon icon="lucide:chevron-left" class="size-5" />
-            </Button>
-            <button
-              class="min-w-[120px] text-center text-sm font-semibold"
-              :class="isToday ? '' : 'cursor-pointer hover:underline'"
-              @click="goToday"
-            >
-              {{ dateLabel }}
-            </button>
-            <Button variant="ghost" size="icon" class="size-11" @click="nextDay">
-              <Icon icon="lucide:chevron-right" class="size-5" />
-            </Button>
-            <Button
-              v-if="!isToday"
-              variant="outline"
-              size="sm"
-              class="ml-1 h-7 text-xs"
-              @click="goToday"
-            >
-              Today
-            </Button>
-          </div>
-
-          <!-- Swipeable day content -->
-          <div
-            v-if="!showSkeleton"
-            class="relative min-h-[200px] overflow-hidden"
-            @touchstart.passive="onTouchStart"
-            @touchmove="onTouchMove"
-            @touchend="onTouchEnd"
+        <!-- Date Navigator -->
+        <div v-if="!showSkeleton" class="mb-4 flex items-center justify-center gap-3">
+          <Button variant="ghost" size="icon" class="size-11" @click="prevDay">
+            <Icon icon="lucide:chevron-left" class="size-5" />
+          </Button>
+          <button
+            class="min-w-[120px] text-center text-sm font-semibold"
+            :class="isToday ? '' : 'cursor-pointer hover:underline'"
+            @click="goToday"
           >
-            <Transition
-              :name="swipeDirection === 'left' ? 'slide-left' : 'slide-right'"
-              mode="out-in"
-            >
-              <div
-                :key="selectedDate"
-                class="space-y-6"
-                :style="{
-                  transform: offsetX ? `translateX(${offsetX}px)` : undefined,
-                  transition: offsetX ? 'none' : undefined,
-                }"
-              >
-                <!-- Summary Card -->
-                <Card class="animate-card-enter shadow-warm">
-                  <CardContent class="space-y-4 pt-6">
-                    <CaloriesRingProgress :consumed="consumed" :goal="goal" />
-                    <div class="grid grid-cols-3 gap-2 border-t border-border pt-4">
-                      <div class="text-center">
-                        <p class="text-xs uppercase tracking-wider text-muted-foreground">Goal</p>
-                        <p class="font-bold">{{ goal.toLocaleString() }}</p>
-                      </div>
-                      <div class="text-center">
-                        <p class="text-xs uppercase tracking-wider text-muted-foreground">Food</p>
-                        <p class="font-bold">{{ consumed.toLocaleString() }}</p>
-                      </div>
-                      <div class="text-center">
-                        <p class="text-xs uppercase tracking-wider text-muted-foreground">
-                          Remaining
-                        </p>
-                        <p class="font-bold">{{ Math.max(0, goal - consumed).toLocaleString() }}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <!-- Macro cards (mobile) / stat cards (desktop) -->
-                <div class="grid grid-cols-3 gap-3 lg:grid-cols-4">
-                  <Card class="animate-card-enter" style="animation-delay: 50ms">
-                    <CardContent class="p-3 lg:p-5">
-                      <p class="text-[10px] font-bold uppercase text-muted-foreground">Protein</p>
-                      <p class="text-sm font-bold lg:text-2xl">{{ dayMacros.protein }}g</p>
-                      <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          class="h-full rounded-full bg-primary"
-                          :style="{ width: `${Math.min(100, (dayMacros.protein / 150) * 100)}%` }"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card class="animate-card-enter" style="animation-delay: 75ms">
-                    <CardContent class="p-3 lg:p-5">
-                      <p class="text-[10px] font-bold uppercase text-muted-foreground">Carbs</p>
-                      <p class="text-sm font-bold lg:text-2xl">{{ dayMacros.carbs }}g</p>
-                      <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          class="h-full rounded-full bg-orange-400"
-                          :style="{ width: `${Math.min(100, (dayMacros.carbs / 250) * 100)}%` }"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card class="animate-card-enter" style="animation-delay: 100ms">
-                    <CardContent class="p-3 lg:p-5">
-                      <p class="text-[10px] font-bold uppercase text-muted-foreground">Fat</p>
-                      <p class="text-sm font-bold lg:text-2xl">{{ dayMacros.fat }}g</p>
-                      <div class="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          class="h-full rounded-full bg-purple-400"
-                          :style="{ width: `${Math.min(100, (dayMacros.fat / 65) * 100)}%` }"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <!-- Remaining kcal card (desktop only) -->
-                  <Card class="animate-card-enter hidden lg:block" style="animation-delay: 125ms">
-                    <CardContent class="p-5">
-                      <p
-                        class="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
-                      >
-                        Remaining
-                      </p>
-                      <p class="text-2xl font-bold text-primary">
-                        {{ Math.max(0, goal - consumed).toLocaleString() }}
-                      </p>
-                      <p class="mt-1 text-xs text-muted-foreground">kcal left</p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <!-- Quick Add Bar -->
-                <Card
-                  class="animate-card-enter border-2 border-primary/20 shadow-warm"
-                  style="animation-delay: 150ms"
-                >
-                  <CardContent class="space-y-4 pt-4">
-                    <div class="flex flex-wrap justify-between gap-2">
-                      <Button variant="outline" class="flex-1 gap-2" @click="logFoodOpen = true">
-                        <Icon icon="lucide:pencil" class="size-4 text-primary" />
-                        Manual
-                      </Button>
-                      <Button variant="outline" class="flex-1 gap-2" @click="barcodeOpen = true">
-                        <Icon icon="lucide:scan-barcode" class="size-4 text-primary" />
-                        Barcode
-                      </Button>
-                      <Button variant="outline" class="flex-1 gap-2" @click="labelScanOpen = true">
-                        <Icon icon="lucide:camera" class="size-4 text-primary" />
-                        AI Scan
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <!-- Meal Sections -->
-                <div class="space-y-4">
-                  <Card
-                    v-for="meal in mealTypes"
-                    :key="meal"
-                    class="animate-card-enter shadow-warm"
-                    :style="{ animationDelay: `${200 + mealTypes.indexOf(meal) * 50}ms` }"
-                  >
-                    <CardContent class="pt-4">
-                      <MealSection
-                        :meal-type="meal"
-                        :entries="entriesForMeal(meal)"
-                        @add-food="openAddFood"
-                        @edit-entry="openEditFood"
-                        @delete-entry="deleteEntry"
-                        @duplicate-entry="duplicateEntry"
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-            </Transition>
-          </div>
+            {{ dateLabel }}
+          </button>
+          <Button variant="ghost" size="icon" class="size-11" @click="nextDay">
+            <Icon icon="lucide:chevron-right" class="size-5" />
+          </Button>
+          <Button
+            v-if="!isToday"
+            variant="outline"
+            size="sm"
+            class="ml-1 h-7 text-xs"
+            @click="goToday"
+          >
+            Today
+          </Button>
         </div>
 
-        <!-- Right sidebar (desktop) -->
-        <div class="hidden space-y-6 lg:col-span-4 lg:block">
-          <!-- Frequent Foods -->
-          <Card class="animate-card-enter shadow-warm" style="animation-delay: 200ms">
-            <CardContent class="pt-6">
-              <div class="mb-4 flex items-center justify-between">
-                <h3 class="text-base font-bold">Recent Foods</h3>
-                <Icon icon="lucide:history" class="size-4 text-muted-foreground" />
-              </div>
-              <div
-                v-if="recentFoods.length === 0"
-                class="py-6 text-center text-sm text-muted-foreground"
-              >
-                No recent foods
-              </div>
-              <div v-else class="space-y-3">
-                <div
-                  v-for="food in recentFoods"
-                  :key="food.name"
-                  class="flex items-center justify-between rounded-lg p-2 hover:bg-muted/50"
-                >
-                  <div class="flex items-center gap-3">
-                    <div class="flex size-8 items-center justify-center rounded-full bg-primary/10">
-                      <Icon icon="lucide:zap" class="size-4 text-primary" />
+        <!-- Swipeable day content -->
+        <div
+          v-if="!showSkeleton"
+          class="relative overflow-hidden"
+          @touchstart.passive="onTouchStart"
+          @touchmove="onTouchMove"
+          @touchend="onTouchEnd"
+        >
+          <Transition
+            :name="swipeDirection === 'left' ? 'slide-left' : 'slide-right'"
+            mode="out-in"
+          >
+            <div
+              :key="selectedDate"
+              class="space-y-4"
+              :style="{
+                transform: offsetX ? `translateX(${offsetX}px)` : undefined,
+                transition: offsetX ? 'none' : undefined,
+              }"
+            >
+              <Card class="animate-card-enter shadow-warm">
+                <CardContent class="pt-5">
+                  <div class="grid gap-4 lg:grid-cols-[170px_1fr] lg:items-center">
+                    <div class="mx-auto w-full max-w-[170px]">
+                      <CaloriesRingProgress :consumed="consumed" :goal="goal" />
                     </div>
-                    <div>
-                      <p class="text-sm font-semibold">{{ food.name }}</p>
-                      <p class="text-xs text-muted-foreground">{{ food.amount }}</p>
+                    <div class="space-y-4">
+                      <div class="grid grid-cols-3 gap-2">
+                        <div class="rounded-xl bg-muted/35 px-3 py-3 text-center">
+                          <p class="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Goal
+                          </p>
+                          <p class="mt-1 text-base font-bold">{{ goal.toLocaleString() }}</p>
+                        </div>
+                        <div class="rounded-xl bg-muted/35 px-3 py-3 text-center">
+                          <p class="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Food
+                          </p>
+                          <p class="mt-1 text-base font-bold">{{ formatNumber(consumed) }}</p>
+                        </div>
+                        <div class="rounded-xl bg-primary/8 px-3 py-3 text-center">
+                          <p class="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            Left
+                          </p>
+                          <p class="mt-1 text-base font-bold text-primary">
+                            {{ formatNumber(Math.max(0, goal - consumed)) }}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div class="rounded-2xl border border-border/70 bg-background p-3">
+                        <div class="mb-3 flex items-center justify-between">
+                          <div>
+                            <h3 class="text-sm font-semibold">Macros</h3>
+                            <p class="text-xs text-muted-foreground">Personal targets for today</p>
+                          </div>
+                          <RouterLink
+                            to="/profile"
+                            class="text-xs font-medium text-primary hover:underline"
+                          >
+                            Edit goals
+                          </RouterLink>
+                        </div>
+                        <MacroProgressBars
+                          :protein="dayMacros.protein"
+                          :protein-goal="macroGoals.protein"
+                          :carbs="dayMacros.carbs"
+                          :carbs-goal="macroGoals.carbs"
+                          :fat="dayMacros.fat"
+                          :fat-goal="macroGoals.fat"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <p class="text-sm font-bold">{{ food.calories }} kcal</p>
-                </div>
+                </CardContent>
+              </Card>
+
+              <Card class="animate-card-enter shadow-warm" style="animation-delay: 50ms">
+                <CardContent class="pt-5">
+                  <div class="mb-3 flex items-center justify-between">
+                    <div>
+                      <h3 class="text-base font-bold">Recent Foods</h3>
+                      <p class="text-xs text-muted-foreground">
+                        Tap once to reopen with saved nutrition.
+                      </p>
+                    </div>
+                    <Icon icon="lucide:history" class="size-4 text-muted-foreground" />
+                  </div>
+
+                  <div
+                    v-if="recentFoods.length === 0"
+                    class="rounded-xl border border-dashed border-border py-6 text-center text-sm text-muted-foreground"
+                  >
+                    Your recently logged foods will appear here.
+                  </div>
+
+                  <div v-else class="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1">
+                    <button
+                      v-for="food in recentFoods"
+                      :key="food.id"
+                      type="button"
+                      class="min-w-[180px] shrink-0 rounded-2xl border border-border bg-background p-4 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                      @click="openRecentFood(food)"
+                    >
+                      <div class="mb-3 flex items-center justify-between gap-3">
+                        <div
+                          class="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary"
+                        >
+                          <Icon icon="lucide:utensils" class="size-4" />
+                        </div>
+                        <span class="text-xs font-medium text-muted-foreground">
+                          {{ food.defaultServingG || 100 }}g default
+                        </span>
+                      </div>
+                      <p class="line-clamp-2 text-sm font-semibold">{{ food.name }}</p>
+                      <p v-if="food.brand" class="mt-1 text-xs text-muted-foreground">
+                        {{ food.brand }}
+                      </p>
+                      <div class="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span class="font-semibold text-foreground">
+                          {{ formatNumber(food.caloriesPer100g) }} kcal
+                        </span>
+                        <span v-if="food.proteinPer100g"
+                          >P {{ formatNumber(food.proteinPer100g) }}g</span
+                        >
+                        <span v-if="food.carbsPer100g"
+                          >C {{ formatNumber(food.carbsPer100g) }}g</span
+                        >
+                        <span v-if="food.fatPer100g">F {{ formatNumber(food.fatPer100g) }}g</span>
+                      </div>
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <div class="space-y-4">
+                <Card
+                  v-for="meal in mealTypes"
+                  :key="meal"
+                  class="animate-card-enter shadow-warm"
+                  :style="{ animationDelay: `${100 + mealTypes.indexOf(meal) * 50}ms` }"
+                >
+                  <CardContent class="pt-4">
+                    <MealSection
+                      :meal-type="meal"
+                      :entries="entriesForMeal(meal)"
+                      @add-food="openAddFood"
+                      @edit-entry="openEditFood"
+                      @delete-entry="deleteEntry"
+                      @duplicate-entry="duplicateEntry"
+                    />
+                  </CardContent>
+                </Card>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </Transition>
         </div>
       </div>
     </div>
@@ -459,13 +403,10 @@ const recentFoods = computed(() => {
       :open="logFoodOpen"
       :initial-date="selectedDate"
       :initial-meal-type="logFoodInitialMeal"
-      :initial-barcode="scannedBarcode"
-      :initial-label-result="scannedLabelResult"
+      :initial-food="logFoodInitialFood"
       hide-trigger
       @update:open="onLogFoodClosed"
     />
     <EditFoodLogDialog v-model:open="editFoodOpen" :entry="editingFoodEntry" />
-    <BarcodeScannerDialog v-model:open="barcodeOpen" hide-trigger @scanned="onBarcodeScanned" />
-    <NutritionLabelDialog v-model:open="labelScanOpen" hide-trigger @scanned="onLabelScanned" />
   </div>
 </template>

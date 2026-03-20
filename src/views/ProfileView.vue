@@ -47,9 +47,20 @@ function setColorThemeByValue(value: unknown) {
 const displayName = ref(auth.currentUser?.name ?? '')
 const heightField = useNumericField({ min: 50, max: 300, required: false })
 const goalWeightField = useNumericField({ min: 20, max: 500, required: false })
+const proteinGoalField = useNumericField({
+  min: 1,
+  max: 999,
+  required: false,
+  allowDecimals: false,
+})
+const carbsGoalField = useNumericField({ min: 1, max: 999, required: false, allowDecimals: false })
+const fatGoalField = useNumericField({ min: 1, max: 999, required: false, allowDecimals: false })
 const dateOfBirth = ref(store.settings.dateOfBirth ?? '')
 
 if (store.settings.heightCm) heightField.reset(store.settings.heightCm)
+if (store.settings.proteinGoalG) proteinGoalField.reset(store.settings.proteinGoalG)
+if (store.settings.carbsGoalG) carbsGoalField.reset(store.settings.carbsGoalG)
+if (store.settings.fatGoalG) fatGoalField.reset(store.settings.fatGoalG)
 const sexValue = ref<string>(store.settings.sex ?? '')
 const goalDirectionValue = ref<string>(store.settings.goalDirection ?? '')
 
@@ -112,7 +123,10 @@ watch(
 async function saveSettings() {
   const heightValid = heightField.validate()
   const goalValid = goalWeightField.validate()
-  if (!heightValid || !goalValid) return
+  const proteinValid = proteinGoalField.validate()
+  const carbsValid = carbsGoalField.validate()
+  const fatValid = fatGoalField.validate()
+  if (!heightValid || !goalValid || !proteinValid || !carbsValid || !fatValid) return
 
   isSaving.value = true
   saveSuccess.value = false
@@ -133,6 +147,9 @@ async function saveSettings() {
     dateOfBirth: dateOfBirth.value || undefined,
     sex: (sexValue.value as 'male' | 'female') || undefined,
     goalDirection: (goalDirectionValue.value as 'loss' | 'gain') || undefined,
+    proteinGoalG: proteinGoalField.numericValue.value ?? undefined,
+    carbsGoalG: carbsGoalField.numericValue.value ?? undefined,
+    fatGoalG: fatGoalField.numericValue.value ?? undefined,
   })
 
   isSaving.value = false
@@ -225,6 +242,7 @@ function logout() {
 const sections = [
   { id: 'profile', label: 'Profile', icon: 'lucide:user' },
   { id: 'body-info', label: 'Body Info', icon: 'lucide:activity' },
+  { id: 'nutrition-goals', label: 'Nutrition Goals', icon: 'lucide:utensils-crossed' },
   { id: 'preferences', label: 'Preferences', icon: 'lucide:sliders-horizontal' },
   { id: 'data', label: 'Data Management', icon: 'lucide:database' },
 ]
@@ -455,6 +473,74 @@ function scrollToSection(id: string) {
                     </Transition>
                   </div>
                 </form>
+              </CardContent>
+            </Card>
+          </section>
+
+          <!-- Nutrition Goals -->
+          <section id="nutrition-goals">
+            <h3 class="mb-4 flex items-center gap-2 text-xl font-bold">
+              <Icon icon="lucide:utensils-crossed" class="size-5 text-primary" />
+              Nutrition Goals
+            </h3>
+            <Card class="shadow-warm">
+              <CardContent class="pt-6">
+                <div class="mb-5">
+                  <p class="font-bold">Daily Macro Targets</p>
+                  <p class="text-sm text-muted-foreground">
+                    These goals power the progress bars on the dashboard and nutrition screen.
+                  </p>
+                </div>
+
+                <div class="grid grid-cols-1 gap-5 md:grid-cols-3">
+                  <div class="grid gap-1.5">
+                    <Label for="protein-goal">Protein (g)</Label>
+                    <Input
+                      id="protein-goal"
+                      v-model="proteinGoalField.displayValue.value"
+                      type="text"
+                      inputmode="numeric"
+                      placeholder="e.g. 150"
+                      v-bind="proteinGoalField.inputAttrs.value"
+                      :class="{ 'animate-shake': proteinGoalField.shaking.value }"
+                    />
+                    <p v-if="proteinGoalField.error.value" class="text-xs text-destructive">
+                      {{ proteinGoalField.error.value }}
+                    </p>
+                  </div>
+
+                  <div class="grid gap-1.5">
+                    <Label for="carbs-goal">Carbs (g)</Label>
+                    <Input
+                      id="carbs-goal"
+                      v-model="carbsGoalField.displayValue.value"
+                      type="text"
+                      inputmode="numeric"
+                      placeholder="e.g. 250"
+                      v-bind="carbsGoalField.inputAttrs.value"
+                      :class="{ 'animate-shake': carbsGoalField.shaking.value }"
+                    />
+                    <p v-if="carbsGoalField.error.value" class="text-xs text-destructive">
+                      {{ carbsGoalField.error.value }}
+                    </p>
+                  </div>
+
+                  <div class="grid gap-1.5">
+                    <Label for="fat-goal">Fat (g)</Label>
+                    <Input
+                      id="fat-goal"
+                      v-model="fatGoalField.displayValue.value"
+                      type="text"
+                      inputmode="numeric"
+                      placeholder="e.g. 65"
+                      v-bind="fatGoalField.inputAttrs.value"
+                      :class="{ 'animate-shake': fatGoalField.shaking.value }"
+                    />
+                    <p v-if="fatGoalField.error.value" class="text-xs text-destructive">
+                      {{ fatGoalField.error.value }}
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </section>

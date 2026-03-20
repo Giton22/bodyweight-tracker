@@ -57,6 +57,10 @@ function cutoffISO(days: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+function round1(value: number): number {
+  return Math.round(value * 10) / 10
+}
+
 export const useFoodStore = defineStore('food', () => {
   const foodItems = ref<FoodItem[]>([])
   const foodLog = ref<FoodLogEntry[]>([])
@@ -377,10 +381,10 @@ export const useFoodStore = defineStore('food', () => {
       }
 
       summary.meals[entry.mealType].push(entry)
-      summary.totalCalories += entry.calories
-      summary.totalProtein += entry.protein ?? 0
-      summary.totalCarbs += entry.carbs ?? 0
-      summary.totalFat += entry.fat ?? 0
+      summary.totalCalories = round1(summary.totalCalories + entry.calories)
+      summary.totalProtein = round1(summary.totalProtein + (entry.protein ?? 0))
+      summary.totalCarbs = round1(summary.totalCarbs + (entry.carbs ?? 0))
+      summary.totalFat = round1(summary.totalFat + (entry.fat ?? 0))
     }
 
     return map

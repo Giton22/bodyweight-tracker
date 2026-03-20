@@ -29,10 +29,12 @@ import {
 import BarcodeScannerDialog from './BarcodeScannerDialog.vue'
 import NutritionLabelDialog from './NutritionLabelDialog.vue'
 import FoodItemCard from './FoodItemCard.vue'
+import FoodSearchInput from './FoodSearchInput.vue'
 
 const props = defineProps<{
   initialDate?: string
   initialMealType?: MealType
+  initialFood?: FoodItem
   hideTrigger?: boolean
   initialBarcode?: string
   initialLabelResult?: {
@@ -71,6 +73,9 @@ const pendingOFFResult = ref<{
   nutritionPer?: number
 } | null>(null)
 const lookingUpBarcode = ref(false)
+
+const barcodeDialogOpen = ref(false)
+const labelDialogOpen = ref(false)
 
 // Step: 'search' (pick food) or 'amount' (set amount and log)
 const step = ref<'search' | 'amount'>('search')
@@ -123,9 +128,9 @@ function resetForm() {
   amountField.reset(100)
   date.value = props.initialDate ?? todayISO()
   mealType.value = props.initialMealType ?? guessCurrentMeal()
-  searchQuery.value = ''
-  personalMatches.value = []
   foodStore.searchResults = []
+  barcodeDialogOpen.value = false
+  labelDialogOpen.value = false
 }
 
 function guessCurrentMeal(): MealType {
@@ -149,6 +154,8 @@ watch(open, (isOpen) => {
     void onBarcodeScanned(props.initialBarcode)
   } else if (props.initialLabelResult) {
     onLabelScanned(props.initialLabelResult)
+  } else if (props.initialFood) {
+    selectPersonalFood(props.initialFood)
   }
 })
 
@@ -195,8 +202,6 @@ function onLabelScanned(result: typeof pendingOFFResult.value) {
 }
 
 function goBackToSearch() {
-  selectedFood.value = null
-  pendingOFFResult.value = null
   step.value = 'search'
 }
 
@@ -246,47 +251,6 @@ async function save(addAnother: boolean) {
   }
 }
 
-// Search logic (inlined from FoodSearchInput)
-const searchQuery = ref('')
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-const personalMatches = ref<FoodItem[]>([])
-
-const hasSearchResults = computed(
-  () =>
-    searchQuery.value.trim() &&
-    (personalMatches.value.length > 0 || foodStore.searchResults.length > 0),
-)
-
-watch(searchQuery, (q) => {
-  if (debounceTimer) clearTimeout(debounceTimer)
-
-  if (!q.trim()) {
-    personalMatches.value = []
-    foodStore.searchResults = []
-    return
-  }
-
-  const lower = q.toLowerCase()
-  personalMatches.value = foodStore.foodItems
-    .filter((f) => f.name.toLowerCase().includes(lower) || f.brand?.toLowerCase().includes(lower))
-    .slice(0, 5)
-
-  debounceTimer = setTimeout(() => {
-    void foodStore.searchFoods(q)
-  }, 400)
-})
-
-function selectPersonalItem(item: FoodItem) {
-  searchQuery.value = ''
-  selectPersonalFood(item)
-}
-
-function selectSearchResult(result: (typeof foodStore.searchResults)[number]) {
-  searchQuery.value = ''
-  selectOFFResult(result)
-}
-
-// Pre-fill recent foods for quick access
 const recentFoodsForDisplay = computed(() => foodStore.recentFoods.slice(0, 6))
 </script>
 
@@ -298,114 +262,94 @@ const recentFoodsForDisplay = computed(() => foodStore.recentFoods.slice(0, 6))
         Log Food
       </Button>
     </DialogTrigger>
-    <DialogContent class="flex max-h-[85dvh] flex-col overflow-hidden sm:max-w-[500px]">
+    <DialogContent class="flex max-h-[90dvh] flex-col overflow-hidden sm:max-w-[540px]">
       <DialogHeader>
         <DialogTitle class="flex items-center gap-2">
           <Icon icon="lucide:utensils" class="h-5 w-5 text-primary" />
-          Log Food
+          {{ step === 'search' ? 'Add Food' : 'Confirm Entry' }}
         </DialogTitle>
-        <DialogDescription> Search or scan a food item to log. </DialogDescription>
+        <DialogDescription>
+          {{
+            step === 'search'
+              ? 'Choose a recent food, search your foods, or scan a new item.'
+              : 'Set the meal and amount before saving.'
+          }}
+        </DialogDescription>
       </DialogHeader>
 
       <!-- Step 1: Search / Select food -->
-      <div v-if="step === 'search'" class="flex min-h-0 flex-1 flex-col space-y-3 py-4">
-        <!-- Fixed top row: search input + scan buttons -->
-        <div class="flex items-center gap-2">
-          <div class="relative flex-1">
-            <Icon
-              icon="lucide:search"
-              class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input v-model="searchQuery" type="text" placeholder="Search foods..." class="pl-9" />
-            <Icon
-              v-if="foodStore.isSearching"
-              icon="lucide:loader-circle"
-              class="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground"
-            />
+      <div v-if="step === 'search'" class="flex min-h-0 flex-1 flex-col gap-4 py-4">
+        <div
+          class="flex items-center justify-between gap-3 rounded-2xl border border-border bg-muted/20 px-4 py-3"
+        >
+          <div>
+            <p class="text-sm font-semibold text-foreground">
+              Logging for {{ mealType.charAt(0).toUpperCase() + mealType.slice(1) }}
+            </p>
+            <p class="text-xs text-muted-foreground">{{ date }}</p>
           </div>
-          <BarcodeScannerDialog @scanned="onBarcodeScanned" />
-          <NutritionLabelDialog v-if="foodStore.visionConfigured" @scanned="onLabelScanned" />
+          <div class="flex items-center gap-2">
+            <BarcodeScannerDialog
+              v-model:open="barcodeDialogOpen"
+              hide-trigger
+              @scanned="onBarcodeScanned"
+            />
+            <NutritionLabelDialog
+              v-if="foodStore.visionConfigured"
+              v-model:open="labelDialogOpen"
+              hide-trigger
+              @scanned="onLabelScanned"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              class="gap-2"
+              @click="barcodeDialogOpen = true"
+            >
+              <Icon icon="lucide:scan-barcode" class="size-4" />
+              Scan
+            </Button>
+            <Button
+              v-if="foodStore.visionConfigured"
+              type="button"
+              variant="outline"
+              size="sm"
+              class="gap-2"
+              @click="labelDialogOpen = true"
+            >
+              <Icon icon="lucide:camera" class="size-4" />
+              Label
+            </Button>
+          </div>
         </div>
 
-        <!-- Scrollable content: search results OR recent foods -->
-        <div class="min-h-0 flex-1 overflow-y-auto">
-          <div
-            v-if="lookingUpBarcode"
-            class="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground"
-          >
-            <Icon icon="lucide:loader-circle" class="h-4 w-4 animate-spin" />
-            Looking up barcode...
-          </div>
-
-          <!-- Search results -->
-          <div v-else-if="hasSearchResults" class="space-y-3">
-            <div v-if="personalMatches.length > 0">
-              <p class="px-3 pt-2 text-xs font-medium text-muted-foreground">My Foods</p>
-              <div class="space-y-1.5 p-1.5">
-                <FoodItemCard
-                  v-for="item in personalMatches"
-                  :key="item.id"
-                  :name="item.name"
-                  :brand="item.brand"
-                  :calories-per100g="item.caloriesPer100g"
-                  :protein-per100g="item.proteinPer100g"
-                  :carbs-per100g="item.carbsPer100g"
-                  :fat-per100g="item.fatPer100g"
-                  clickable
-                  @select="selectPersonalItem(item)"
-                />
-              </div>
-            </div>
-
-            <div v-if="foodStore.searchResults.length > 0">
-              <p class="px-3 pt-2 text-xs font-medium text-muted-foreground">OpenFoodFacts</p>
-              <div class="space-y-1.5 p-1.5">
-                <FoodItemCard
-                  v-for="result in foodStore.searchResults"
-                  :key="result.barcode"
-                  :name="result.name"
-                  :brand="result.brand"
-                  :calories-per100g="result.caloriesPer100g"
-                  :protein-per100g="result.proteinPer100g"
-                  :carbs-per100g="result.carbsPer100g"
-                  :fat-per100g="result.fatPer100g"
-                  clickable
-                  @select="selectSearchResult(result)"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Recent foods -->
-          <div v-else-if="recentFoodsForDisplay.length > 0 && !lookingUpBarcode">
-            <p class="mb-2 text-xs font-medium text-muted-foreground">Recent</p>
-            <div class="space-y-1.5">
-              <FoodItemCard
-                v-for="item in recentFoodsForDisplay"
-                :key="item.id"
-                :name="item.name"
-                :brand="item.brand"
-                :calories-per100g="item.caloriesPer100g"
-                :protein-per100g="item.proteinPer100g"
-                :carbs-per100g="item.carbsPer100g"
-                :fat-per100g="item.fatPer100g"
-                clickable
-                @select="selectPersonalFood(item)"
-              />
-            </div>
-          </div>
+        <div
+          v-if="lookingUpBarcode"
+          class="flex items-center justify-center gap-2 rounded-2xl border border-border py-8 text-sm text-muted-foreground"
+        >
+          <Icon icon="lucide:loader-circle" class="h-4 w-4 animate-spin" />
+          Looking up barcode...
         </div>
+
+        <FoodSearchInput
+          v-else
+          :recent-foods="recentFoodsForDisplay"
+          @select-personal="selectPersonalFood"
+          @select-result="selectOFFResult"
+          @select-recent="selectPersonalFood"
+        />
       </div>
 
       <!-- Step 2: Set amount and meal type -->
       <div v-if="step === 'amount'" class="space-y-4 py-4">
         <button
           type="button"
-          class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          class="flex w-fit items-center gap-2 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           @click="goBackToSearch"
         >
-          <Icon icon="lucide:arrow-left" class="h-3.5 w-3.5" />
-          Back to search
+          <Icon icon="lucide:arrow-left" class="h-4 w-4" />
+          Choose different food
         </button>
 
         <!-- Selected food summary -->

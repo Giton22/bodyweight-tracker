@@ -91,6 +91,9 @@ function toUserSettings(r: UserSettingsRecord): UserSettings {
     dateOfBirth: r.date_of_birth || undefined,
     sex: (r.sex as Sex) || undefined,
     goalDirection: (r.goal_direction as GoalDirection) || undefined,
+    proteinGoalG: r.protein_goal_g || undefined,
+    carbsGoalG: r.carbs_goal_g || undefined,
+    fatGoalG: r.fat_goal_g || undefined,
     dashboardLayout,
   }
 }
@@ -142,6 +145,9 @@ export const useWeightStore = defineStore('weight', () => {
     heightCm: 178,
     dateOfBirth: undefined,
     sex: undefined,
+    proteinGoalG: undefined,
+    carbsGoalG: undefined,
+    fatGoalG: undefined,
     dashboardLayout: undefined,
   })
   // PocketBase record ID for settings (needed for update calls)
@@ -300,6 +306,9 @@ export const useWeightStore = defineStore('weight', () => {
       heightCm: 178,
       dateOfBirth: undefined,
       sex: undefined,
+      proteinGoalG: undefined,
+      carbsGoalG: undefined,
+      fatGoalG: undefined,
       dashboardLayout: undefined,
     }
     settingsRecordId.value = null
@@ -329,6 +338,9 @@ export const useWeightStore = defineStore('weight', () => {
       date_of_birth: next.dateOfBirth ?? '',
       sex: next.sex ?? '',
       goal_direction: next.goalDirection ?? '',
+      protein_goal_g: next.proteinGoalG ?? null,
+      carbs_goal_g: next.carbsGoalG ?? null,
+      fat_goal_g: next.fatGoalG ?? null,
       dashboard_layout: JSON.stringify(next.dashboardLayout ?? []),
     }
 

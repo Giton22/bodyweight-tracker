@@ -208,8 +208,11 @@ function onDragStart() {
                     <h3 class="mb-6 text-lg font-bold">Daily Calories</h3>
                     <MacroProgressBars
                       :protein="todayMacros.protein"
+                      :protein-goal="weightStore.settings.proteinGoalG ?? 150"
                       :carbs="todayMacros.carbs"
+                      :carbs-goal="weightStore.settings.carbsGoalG ?? 250"
                       :fat="todayMacros.fat"
+                      :fat-goal="weightStore.settings.fatGoalG ?? 65"
                     />
                   </div>
                   <div
