@@ -5,19 +5,20 @@ import { Icon } from '@iconify/vue'
 import { useWeightStore } from '@/stores/weight'
 import { useUnits } from '@/composables/useUnits'
 import { useNumericField } from '@/composables/useNumericField'
+import { useHaptics } from '@/composables/useHaptics'
 import { todayISO } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog'
+import { DialogTrigger } from '@/components/ui/dialog'
 
 const props = defineProps<{
   hideTrigger?: boolean
@@ -25,6 +26,7 @@ const props = defineProps<{
 
 const store = useWeightStore()
 const { isKg, convert, toKg } = useUnits()
+const haptics = useHaptics()
 
 const open = defineModel<boolean>('open', { default: false })
 const date = ref(todayISO())
@@ -73,6 +75,8 @@ async function submit() {
       weightKg: toKg(weightField.numericValue.value!),
       note: note.value || undefined,
     })
+
+    haptics.success()
 
     // Reset
     weightField.reset()

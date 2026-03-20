@@ -1,4 +1,5 @@
 import { ref, computed, type Ref, type ComputedRef } from 'vue'
+import { useHaptics } from '@/composables/useHaptics'
 
 interface NumericFieldOptions {
   min?: number
@@ -37,8 +38,11 @@ export function useNumericField(options: NumericFieldOptions = {}): NumericField
 
   const inputAttrs = computed(() => (isInvalid.value ? { 'aria-invalid': true } : {}))
 
+  const haptics = useHaptics()
+
   function triggerShake() {
     shaking.value = true
+    haptics.error()
     setTimeout(() => {
       shaking.value = false
     }, 400)

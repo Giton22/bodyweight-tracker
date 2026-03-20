@@ -538,7 +538,7 @@
   background: transparent;
 }
 
-/* Route transitions */
+/* Route transitions — desktop vertical fade */
 .page-enter-active,
 .page-leave-active {
   transition:
@@ -552,6 +552,44 @@
 .page-leave-to {
   opacity: 0;
   transform: translateY(-4px);
+}
+
+/* Route transitions — mobile horizontal slide */
+@media (max-width: 1023px) {
+  .page-forward-enter-active,
+  .page-forward-leave-active,
+  .page-back-enter-active,
+  .page-back-leave-active {
+    transition:
+      opacity 0.25s ease,
+      transform 0.25s ease;
+  }
+
+  .page-forward-enter-from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  .page-forward-leave-to {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  .page-back-enter-from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  .page-back-leave-to {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+}
+
+/* Prevent layout collapse during transition gap */
+.page-leave-active,
+.page-forward-leave-active,
+.page-back-leave-active {
+  position: absolute;
+  width: 100%;
 }
 
 /* Swiper */
@@ -585,9 +623,12 @@
   transform: scale(1.25);
 }
 
-/* Safe area inset for devices with home indicator */
+/* Safe area insets for devices with notch/home indicator */
 .pb-safe {
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
 }
 
 /* Warm shadow utilities */

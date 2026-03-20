@@ -5,19 +5,20 @@ import { Icon } from '@iconify/vue'
 import type { MealType } from '@/types'
 import { useFoodStore } from '@/stores/food'
 import { useNumericField } from '@/composables/useNumericField'
+import { useHaptics } from '@/composables/useHaptics'
 import { todayISO } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog'
+import { DialogTrigger } from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ import {
 } from '@/components/ui/select'
 
 const foodStore = useFoodStore()
+const haptics = useHaptics()
 
 const open = ref(false)
 const saving = ref(false)
@@ -69,6 +71,7 @@ async function submit() {
       Math.round(caloriesField.numericValue.value!),
       name.value || undefined,
     )
+    haptics.success()
     toast.success('Quick entry logged')
     open.value = false
   } catch {

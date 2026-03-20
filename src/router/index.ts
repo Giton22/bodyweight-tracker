@@ -1,3 +1,4 @@
+import { ref } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import { pb } from '@/lib/pocketbase'
 import { useAuthStore } from '@/stores/auth'
@@ -11,6 +12,18 @@ declare module 'vue-router' {
 }
 
 const APP_TITLE = 'Slimrr'
+
+const routeDepth: Record<string, number> = {
+  dashboard: 0,
+  weight: 0,
+  nutrition: 0,
+  groups: 0,
+  profile: 0,
+  'nutrition-overview': 1,
+  'group-detail': 1,
+}
+
+export const navDirection = ref<'forward' | 'back'>('forward')
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -82,7 +95,11 @@ const router = createRouter({
   ],
 })
 
-router.beforeEach(async (to) => {
+router.beforeEach(async (to, from) => {
+  const toDepth = routeDepth[to.name as string] ?? 0
+  const fromDepth = routeDepth[from.name as string] ?? 0
+  navDirection.value = toDepth > fromDepth ? 'forward' : toDepth < fromDepth ? 'back' : 'forward'
+
   const isAuthenticated = pb.authStore.isValid
   const auth = useAuthStore()
 

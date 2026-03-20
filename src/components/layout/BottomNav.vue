@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { Icon } from '@iconify/vue'
+import { useHaptics } from '@/composables/useHaptics'
 
 const route = useRoute()
+const haptics = useHaptics()
 
 const navItems = [
   { to: '/', icon: 'lucide:layout-grid', activeIcon: 'lucide:layout-grid', label: 'Dashboard' },
@@ -34,6 +36,7 @@ function isActive(to: string) {
         :to="item.to"
         class="flex flex-col items-center gap-1 p-2 transition-colors"
         :class="isActive(item.to) ? 'text-primary' : 'text-muted-foreground'"
+        @click="haptics.light()"
       >
         <Icon :icon="isActive(item.to) ? item.activeIcon : item.icon" class="size-5" />
         <span class="text-[10px] font-semibold">{{ item.label }}</span>

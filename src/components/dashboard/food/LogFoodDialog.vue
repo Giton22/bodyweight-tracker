@@ -5,19 +5,20 @@ import { Icon } from '@iconify/vue'
 import type { FoodItem, MealType } from '@/types'
 import { useFoodStore } from '@/stores/food'
 import { useNumericField } from '@/composables/useNumericField'
+import { useHaptics } from '@/composables/useHaptics'
 import { todayISO } from '@/lib/date'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  ResponsiveDialog as Dialog,
+  ResponsiveDialogContent as DialogContent,
+  ResponsiveDialogDescription as DialogDescription,
+  ResponsiveDialogFooter as DialogFooter,
+  ResponsiveDialogHeader as DialogHeader,
+  ResponsiveDialogTitle as DialogTitle,
+} from '@/components/ui/responsive-dialog'
+import { DialogTrigger } from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
@@ -49,6 +50,7 @@ const props = defineProps<{
 }>()
 
 const foodStore = useFoodStore()
+const haptics = useHaptics()
 
 const open = defineModel<boolean>('open', { default: false })
 const saving = ref(false)
@@ -229,6 +231,7 @@ async function save(addAnother: boolean) {
       Math.round(amountField.numericValue.value!),
     )
 
+    haptics.success()
     toast.success(`Logged ${activeFoodName.value}`)
 
     if (addAnother) {

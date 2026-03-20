@@ -56,15 +56,33 @@ function readStoredColorTheme(defaultColorTheme: ColorTheme): ColorTheme {
   return defaultColorTheme
 }
 
+function updateMetaThemeColor() {
+  requestAnimationFrame(() => {
+    const el = document.createElement('div')
+    el.style.display = 'none'
+    el.style.backgroundColor = 'var(--background)'
+    document.body.appendChild(el)
+    const resolved = getComputedStyle(el).backgroundColor
+    document.body.removeChild(el)
+
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta && resolved) {
+      meta.setAttribute('content', resolved)
+    }
+  })
+}
+
 function applyTheme(value: Theme) {
   const resolved = value === 'system' ? getSystemPreference() : value
   const root = document.documentElement
   root.classList.remove('light', 'dark')
   root.classList.add(resolved)
+  updateMetaThemeColor()
 }
 
 function applyColorTheme(value: ColorTheme) {
   document.documentElement.dataset.theme = value
+  updateMetaThemeColor()
 }
 
 function handleSystemThemeChange() {

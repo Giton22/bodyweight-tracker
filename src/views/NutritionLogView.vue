@@ -2,9 +2,11 @@
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Icon } from '@iconify/vue'
+import { toast } from 'vue-sonner'
 import { useWeightStore } from '@/stores/weight'
 import { useFoodStore } from '@/stores/food'
 import { today } from '@/composables/useToday'
+import { usePullToRefresh } from '@/composables/usePullToRefresh'
 import { addDays, formatDateShort } from '@/lib/date'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -119,6 +121,41 @@ function openEditFood(entry: FoodLogEntry) {
   editFoodOpen.value = true
 }
 
+async function deleteEntry(entry: FoodLogEntry) {
+  try {
+    await foodStore.deleteFoodLogEntry(entry.id)
+    toast.success('Entry deleted')
+  } catch {
+    toast.error('Failed to delete entry')
+  }
+}
+
+async function duplicateEntry(entry: FoodLogEntry) {
+  try {
+    await foodStore.logFood({
+      date: entry.date,
+      mealType: entry.mealType,
+      foodName: entry.foodName,
+      amountG: entry.amountG,
+      calories: entry.calories,
+      protein: entry.protein,
+      carbs: entry.carbs,
+      fat: entry.fat,
+    })
+    toast.success('Entry duplicated')
+  } catch {
+    toast.error('Failed to duplicate entry')
+  }
+}
+
+// Pull-to-refresh
+const containerRef = ref<HTMLElement | null>(null)
+const { pullDistance, isRefreshing } = usePullToRefresh(containerRef, {
+  async onRefresh() {
+    await foodStore.loadFoodData()
+  },
+})
+
 // Recent food items (from food log, deduplicated by name)
 const recentFoods = computed(() => {
   const seen = new Set<string>()
@@ -138,7 +175,20 @@ const recentFoods = computed(() => {
 </script>
 
 <template>
-  <div class="p-4 lg:p-8">
+  <div ref="containerRef" class="p-4 lg:p-8">
+    <!-- Pull-to-refresh indicator -->
+    <div
+      v-if="pullDistance > 0 || isRefreshing"
+      class="flex items-center justify-center pb-2 lg:hidden"
+      :style="{ height: `${Math.max(pullDistance, isRefreshing ? 40 : 0)}px` }"
+    >
+      <Icon
+        icon="lucide:loader-circle"
+        class="size-5 text-primary"
+        :class="{ 'animate-spin': isRefreshing }"
+      />
+    </div>
+
     <div class="mx-auto max-w-7xl">
       <!-- Desktop heading -->
       <div class="mb-6 hidden lg:block">
@@ -177,7 +227,7 @@ const recentFoods = computed(() => {
         <div class="space-y-6 lg:col-span-8">
           <!-- Date Navigator -->
           <div class="flex items-center justify-center gap-3">
-            <Button variant="ghost" size="icon" class="size-9" @click="prevDay">
+            <Button variant="ghost" size="icon" class="size-11" @click="prevDay">
               <Icon icon="lucide:chevron-left" class="size-5" />
             </Button>
             <button
@@ -187,7 +237,7 @@ const recentFoods = computed(() => {
             >
               {{ dateLabel }}
             </button>
-            <Button variant="ghost" size="icon" class="size-9" @click="nextDay">
+            <Button variant="ghost" size="icon" class="size-11" @click="nextDay">
               <Icon icon="lucide:chevron-right" class="size-5" />
             </Button>
             <Button
@@ -311,6 +361,8 @@ const recentFoods = computed(() => {
                   :entries="entriesForMeal(meal)"
                   @add-food="openAddFood"
                   @edit-entry="openEditFood"
+                  @delete-entry="deleteEntry"
+                  @duplicate-entry="duplicateEntry"
                 />
               </CardContent>
             </Card>

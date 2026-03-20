@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { Icon } from '@iconify/vue'
 import { useWeightStore } from '@/stores/weight'
 import { useFoodStore } from '@/stores/food'
+import { usePullToRefresh } from '@/composables/usePullToRefresh'
 import { Card, CardContent } from '@/components/ui/card'
 import BmiHalfCircleGauge from '@/components/dashboard/BmiHalfCircleGauge.vue'
 import CaloriesDonutChart from '@/components/dashboard/CaloriesDonutChart.vue'
@@ -24,10 +26,31 @@ const todayMacros = computed(() => {
     fat: s?.totalFat ?? 0,
   }
 })
+
+// Pull-to-refresh
+const containerRef = ref<HTMLElement | null>(null)
+const { pullDistance, isRefreshing } = usePullToRefresh(containerRef, {
+  async onRefresh() {
+    await Promise.all([weightStore.loadAll(), foodStore.loadFoodData()])
+  },
+})
 </script>
 
 <template>
-  <div class="p-4 lg:p-8">
+  <div ref="containerRef" class="p-4 lg:p-8">
+    <!-- Pull-to-refresh indicator -->
+    <div
+      v-if="pullDistance > 0 || isRefreshing"
+      class="flex items-center justify-center pb-2 lg:hidden"
+      :style="{ height: `${Math.max(pullDistance, isRefreshing ? 40 : 0)}px` }"
+    >
+      <Icon
+        icon="lucide:loader-circle"
+        class="size-5 text-primary"
+        :class="{ 'animate-spin': isRefreshing }"
+      />
+    </div>
+
     <div class="mx-auto max-w-7xl space-y-6 lg:space-y-8">
       <!-- Page heading (desktop only) -->
       <div class="hidden lg:block">
