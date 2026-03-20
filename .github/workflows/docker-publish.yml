@@ -31,6 +31,9 @@ jobs:
             runner: ubuntu-24.04-arm
 
     steps:
+      - name: Downcase IMAGE_NAME
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -88,6 +91,9 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Downcase IMAGE_NAME
+        run: echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "$GITHUB_ENV"
+
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
