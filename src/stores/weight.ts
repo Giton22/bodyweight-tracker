@@ -75,6 +75,15 @@ function toKcalGoalChange(r: KcalGoalChangeRecord): KcalGoalChange {
 }
 
 function toUserSettings(r: UserSettingsRecord): UserSettings {
+  let dashboardLayout: { id: string; visible: boolean }[] | undefined
+  if (r.dashboard_layout) {
+    try {
+      dashboardLayout =
+        typeof r.dashboard_layout === 'string' ? JSON.parse(r.dashboard_layout) : r.dashboard_layout
+    } catch {
+      dashboardLayout = undefined
+    }
+  }
   return {
     unit: r.unit,
     goalWeightKg: r.goal_weight_kg,
@@ -82,6 +91,7 @@ function toUserSettings(r: UserSettingsRecord): UserSettings {
     dateOfBirth: r.date_of_birth || undefined,
     sex: (r.sex as Sex) || undefined,
     goalDirection: (r.goal_direction as GoalDirection) || undefined,
+    dashboardLayout,
   }
 }
 
@@ -132,6 +142,7 @@ export const useWeightStore = defineStore('weight', () => {
     heightCm: 178,
     dateOfBirth: undefined,
     sex: undefined,
+    dashboardLayout: undefined,
   })
   // PocketBase record ID for settings (needed for update calls)
   const settingsRecordId = ref<string | null>(null)
@@ -289,6 +300,7 @@ export const useWeightStore = defineStore('weight', () => {
       heightCm: 178,
       dateOfBirth: undefined,
       sex: undefined,
+      dashboardLayout: undefined,
     }
     settingsRecordId.value = null
     weightTimeRange.value = 90
@@ -317,6 +329,7 @@ export const useWeightStore = defineStore('weight', () => {
       date_of_birth: next.dateOfBirth ?? '',
       sex: next.sex ?? '',
       goal_direction: next.goalDirection ?? '',
+      dashboard_layout: JSON.stringify(next.dashboardLayout ?? []),
     }
 
     if (settingsRecordId.value) {

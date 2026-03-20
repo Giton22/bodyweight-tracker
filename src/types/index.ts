@@ -119,4 +119,5 @@ export interface UserSettings {
   dateOfBirth?: string // YYYY-MM-DD
   sex?: Sex
   goalDirection?: GoalDirection
+  dashboardLayout?: { id: string; visible: boolean }[]
 }

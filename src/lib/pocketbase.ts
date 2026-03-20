@@ -43,6 +43,7 @@ export interface UserSettingsRecord extends RecordModel {
   date_of_birth: string // YYYY-MM-DD or ''
   sex: 'male' | 'female' | ''
   goal_direction: 'loss' | 'gain' | ''
+  dashboard_layout: string // JSON string from PocketBase
 }
 
 export interface GroupRecord extends RecordModel {
