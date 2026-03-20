@@ -13,9 +13,14 @@ import LogWeightDialog from '@/components/dashboard/LogWeightDialog.vue'
 import EditWeightDialog from '@/components/dashboard/EditWeightDialog.vue'
 import type { WeightEntry } from '@/types'
 import WeightTrackerSkeleton from '@/components/dashboard/skeletons/WeightTrackerSkeleton.vue'
+import {
+  formatRecentLogDisplayDiff,
+  getRecentLogChangeClass,
+  getRecentLogDisplayDiff,
+} from '@/views/weightTrackerRecentLogs'
 
 const store = useWeightStore()
-const { format, formatDelta, convert } = useUnits()
+const { format, convert, isKg } = useUnits()
 
 const logDialogOpen = ref(false)
 const editDialogOpen = ref(false)
@@ -48,24 +53,24 @@ function formatDate(dateStr: string) {
 function getChange(index: number): string | null {
   const entries = recentEntries.value
   if (index >= entries.length - 1) return null
-  const diff = entries[index]!.weightKg - entries[index + 1]!.weightKg
-  return formatDelta(diff)
+  const diff = getRecentLogDisplayDiff(
+    entries[index]!.weightKg,
+    entries[index + 1]!.weightKg,
+    isKg.value ? 'kg' : 'lbs',
+  )
+  return formatRecentLogDisplayDiff(diff, isKg.value ? 'kg' : 'lbs')
 }
 
 function getChangeClass(index: number): string {
   const entries = recentEntries.value
   if (index >= entries.length - 1) return ''
-  const diff = entries[index]!.weightKg - entries[index + 1]!.weightKg
+  const diff = getRecentLogDisplayDiff(
+    entries[index]!.weightKg,
+    entries[index + 1]!.weightKg,
+    isKg.value ? 'kg' : 'lbs',
+  )
   const direction = store.settings.goalDirection ?? 'loss'
-  if (diff === 0) return 'bg-muted text-muted-foreground'
-  if (direction === 'loss') {
-    return diff < 0
-      ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-      : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-  }
-  return diff > 0
-    ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400'
-    : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+  return getRecentLogChangeClass(diff, direction)
 }
 </script>
 

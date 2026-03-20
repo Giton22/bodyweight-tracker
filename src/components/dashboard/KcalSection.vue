@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useWeightStore } from '@/stores/weight'
 import { useFoodStore } from '@/stores/food'
 import { getCalorieStatus } from '@/lib/calorieStatus'
@@ -8,12 +8,13 @@ import StatCard from '@/components/dashboard/StatCard.vue'
 import KcalChart from '@/components/dashboard/KcalChart.vue'
 import DailyCaloriesTable from '@/components/dashboard/DailyCaloriesTable.vue'
 import TimeRangeSelect from '@/components/dashboard/TimeRangeSelect.vue'
-import SetKcalGoalDialog from '@/components/dashboard/SetKcalGoalDialog.vue'
+import QuickSetKcalGoal from '@/components/dashboard/QuickSetKcalGoal.vue'
+import QuickLogCalories from '@/components/dashboard/QuickLogCalories.vue'
 import LogFoodDialog from '@/components/dashboard/food/LogFoodDialog.vue'
-import QuickLogDialog from '@/components/dashboard/food/QuickLogDialog.vue'
 
 const store = useWeightStore()
 const foodStore = useFoodStore()
+const activeQuickAction = ref<'goal' | 'log' | null>(null)
 
 const todayKcalRemaining = computed(() => {
   const summary = store.todayCalorieSummary
@@ -107,12 +108,20 @@ const caloriesCountHint = computed(() => {
         <CardTitle>Calorie History</CardTitle>
         <div class="flex flex-wrap items-center gap-2">
           <TimeRangeSelect target="calories" />
-          <SetKcalGoalDialog />
-          <QuickLogDialog />
           <LogFoodDialog />
         </div>
       </CardHeader>
       <CardContent>
+        <div class="mb-6 grid gap-3 xl:grid-cols-2">
+          <QuickSetKcalGoal
+            :open="activeQuickAction === 'goal'"
+            @update:open="activeQuickAction = $event ? 'goal' : null"
+          />
+          <QuickLogCalories
+            :open="activeQuickAction === 'log'"
+            @update:open="activeQuickAction = $event ? 'log' : null"
+          />
+        </div>
         <KcalChart />
       </CardContent>
     </Card>

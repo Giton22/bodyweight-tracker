@@ -7,9 +7,9 @@ import { useUnits } from '@/composables/useUnits'
 import { useNumericField } from '@/composables/useNumericField'
 import { todayISO } from '@/lib/date'
 import { useToday } from '@/composables/useToday'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import InlineActionCard from '@/components/dashboard/InlineActionCard.vue'
 
 const store = useWeightStore()
 const { convert, isKg, format, toKg } = useUnits()
@@ -21,6 +21,11 @@ const editing = ref(false)
 const saving = ref(false)
 const weightField = useNumericField({ min: 1, required: true })
 const inputRef = ref<InstanceType<typeof Input> | null>(null)
+
+const summary = computed(() => (todayEntry.value ? format(todayEntry.value.weightKg) : 'No entry'))
+const description = computed(() =>
+  todayEntry.value ? 'Tap edit to update today' : 'Log today without leaving the dashboard',
+)
 
 function startEditing() {
   weightField.reset(todayEntry.value ? convert(todayEntry.value.weightKg) : undefined)
@@ -57,58 +62,45 @@ function cancel() {
 </script>
 
 <template>
-  <Card class="bg-primary/5 border-primary/20">
-    <CardHeader class="flex flex-row items-center justify-between space-y-0 pb-2">
-      <CardTitle class="text-sm font-medium text-muted-foreground"> Today's Weight </CardTitle>
-    </CardHeader>
-    <CardContent>
-      <template v-if="!editing">
-        <div class="text-2xl font-bold">
-          {{ todayEntry ? format(todayEntry.weightKg) : '—' }}
-        </div>
-        <button
-          type="button"
-          class="mt-1 flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-          @click="startEditing"
+  <InlineActionCard
+    title="Today's Weight"
+    icon="lucide:scale"
+    :editing="editing"
+    :summary="summary"
+    :description="description"
+    class="bg-primary/5 border-primary/20"
+    @edit="startEditing"
+    @cancel="cancel"
+  >
+    <form class="flex flex-col gap-2 pt-1" @submit.prevent="save">
+      <div class="flex items-center gap-2">
+        <Input
+          ref="inputRef"
+          v-model="weightField.displayValue.value"
+          type="text"
+          inputmode="decimal"
+          :placeholder="isKg ? 'kg' : 'lbs'"
+          class="h-8 w-28"
+          v-bind="weightField.inputAttrs.value"
+          :class="{ 'animate-shake': weightField.shaking.value }"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          class="h-8"
+          :disabled="!weightField.numericValue.value || saving"
         >
-          <Icon :icon="todayEntry ? 'lucide:pencil' : 'lucide:plus'" class="h-3 w-3" />
-          {{ todayEntry ? 'Update' : 'Log weight' }}
-        </button>
-      </template>
-      <template v-else>
-        <form class="flex flex-col gap-1" @submit.prevent="save">
-          <div class="flex items-center gap-2">
-            <Input
-              ref="inputRef"
-              v-model="weightField.displayValue.value"
-              type="text"
-              inputmode="decimal"
-              :placeholder="isKg ? 'kg' : 'lbs'"
-              class="h-8 w-24"
-              v-bind="weightField.inputAttrs.value"
-              :class="{ 'animate-shake': weightField.shaking.value }"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              class="h-8"
-              :disabled="!weightField.numericValue.value || saving"
-            >
-              <Icon
-                :icon="saving ? 'lucide:loader-circle' : 'lucide:check'"
-                class="h-4 w-4"
-                :class="saving && 'animate-spin'"
-              />
-            </Button>
-            <Button type="button" variant="ghost" size="sm" class="h-8" @click="cancel">
-              <Icon icon="lucide:x" class="h-4 w-4" />
-            </Button>
-          </div>
-          <p v-if="weightField.error.value" class="text-xs text-destructive">
-            {{ weightField.error.value }}
-          </p>
-        </form>
-      </template>
-    </CardContent>
-  </Card>
+          <Icon
+            :icon="saving ? 'lucide:loader-circle' : 'lucide:check'"
+            class="h-4 w-4"
+            :class="saving && 'animate-spin'"
+          />
+          <span>{{ todayEntry ? 'Update' : 'Save' }}</span>
+        </Button>
+      </div>
+      <p v-if="weightField.error.value" class="text-xs text-destructive">
+        {{ weightField.error.value }}
+      </p>
+    </form>
+  </InlineActionCard>
 </template>

@@ -9,7 +9,6 @@ import WeightChart from '@/components/dashboard/WeightChart.vue'
 import RecentEntries from '@/components/dashboard/RecentEntries.vue'
 import AverageModeToggle from '@/components/dashboard/AverageModeToggle.vue'
 import TimeRangeSelect from '@/components/dashboard/TimeRangeSelect.vue'
-import LogWeightDialog from '@/components/dashboard/LogWeightDialog.vue'
 
 const store = useWeightStore()
 const { format, formatDelta } = useUnits()
@@ -115,7 +114,6 @@ const entriesCountHint = computed(() => {
         <div class="flex flex-wrap items-center gap-2">
           <AverageModeToggle />
           <TimeRangeSelect target="weight" />
-          <LogWeightDialog />
         </div>
       </CardHeader>
       <CardContent>
