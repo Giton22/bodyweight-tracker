@@ -16,24 +16,36 @@ import { pb, COLLECTIONS } from '@/lib/pocketbase'
 import type {
   FoodFavoriteRecord,
   FoodFrequentRecord,
-  FoodItemRecord,
   FoodLogRecord,
   FoodRecentRecord,
 } from '@/lib/pocketbase'
 import { today } from '@/composables/useToday'
-
-interface OFFSearchResult {
-  barcode: string
-  name: string
-  brand: string
-  caloriesPer100g: number
-  proteinPer100g: number
-  carbsPer100g: number
-  fatPer100g: number
-  servingG: number
-  offId: string
-  nutritionPer?: number
-}
+import {
+  checkVisionConfiguration,
+  createFoodItemRecord,
+  type OFFSearchResult,
+  loadFoodDashboardRepositoryData,
+  lookupFoodBarcode,
+  parseNutritionLabelImage,
+  searchFoodDatabase,
+  subscribeFoodRealtime,
+  toFoodFavorite,
+  toFoodFrequent,
+  toFoodLogEntry,
+  toFoodRecent,
+  unsubscribeFoodRealtime,
+} from '@/lib/food/repository'
+import {
+  buildCombinedSearchState,
+  buildDailyFoodSummaries,
+  buildFavoriteFoods,
+  buildFrequentFoods,
+  buildRecentFoods,
+  cleanupDetachedFoodCollections,
+  compareUsageRecency,
+  dedupeByFoodItem,
+  foodsForDashboardTab as getFoodsForDashboardTab,
+} from '@/lib/food/helpers'
 
 export interface FoodSelection {
   foodItemId?: string
@@ -63,111 +75,6 @@ interface LogFoodPayload {
   fat?: number
   note?: string
   sourceContext?: FoodSearchSource
-}
-
-function toFoodItem(r: FoodItemRecord): FoodItem {
-  return {
-    id: r.id,
-    name: r.name,
-    brand: r.brand || undefined,
-    barcode: r.barcode || undefined,
-    caloriesPer100g: r.calories_per_100g,
-    proteinPer100g: r.protein_per_100g || undefined,
-    carbsPer100g: r.carbs_per_100g || undefined,
-    fatPer100g: r.fat_per_100g || undefined,
-    defaultServingG: r.default_serving_g || 100,
-    source: r.source,
-    offId: r.off_id || undefined,
-  }
-}
-
-function toFoodLogEntry(r: FoodLogRecord): FoodLogEntry {
-  return {
-    id: r.id,
-    date: r.date,
-    mealType: r.meal_type,
-    foodItem: r.food_item || undefined,
-    foodName: r.food_name,
-    amountG: r.amount_g,
-    calories: r.calories,
-    protein: r.protein || undefined,
-    carbs: r.carbs || undefined,
-    fat: r.fat || undefined,
-    note: r.note || undefined,
-  }
-}
-
-function toFoodFavorite(r: FoodFavoriteRecord): FoodFavorite {
-  return {
-    id: r.id,
-    foodItem: r.food_item,
-    created: r.created,
-  }
-}
-
-function toFoodRecent(r: FoodRecentRecord): FoodRecent {
-  return {
-    id: r.id,
-    foodItem: r.food_item,
-    lastLoggedAt: r.last_logged_at,
-    lastLoggedDate: r.last_logged_date,
-    lastMealType: r.last_meal_type,
-    lastAmountG: r.last_amount_g,
-    timesLogged: r.times_logged,
-  }
-}
-
-function toFoodFrequent(r: FoodFrequentRecord): FoodFrequent {
-  return {
-    id: r.id,
-    foodItem: r.food_item,
-    lastLoggedAt: r.last_logged_at,
-    lastLoggedDate: r.last_logged_date,
-    lastMealType: r.last_meal_type,
-    lastAmountG: r.last_amount_g,
-    timesLogged: r.times_logged,
-  }
-}
-
-function cutoffISO(days: number): string {
-  const d = new Date()
-  d.setDate(d.getDate() - days)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
-function round1(value: number): number {
-  return Math.round(value * 10) / 10
-}
-
-function compareFoodNames(a: FoodItem | undefined, b: FoodItem | undefined): number {
-  const aName = a?.name.toLocaleLowerCase() ?? ''
-  const bName = b?.name.toLocaleLowerCase() ?? ''
-  return aName.localeCompare(bName)
-}
-
-function dedupeByFoodItem<T extends { foodItem: string }>(
-  items: T[],
-  shouldReplace: (current: T, next: T) => boolean,
-): T[] {
-  const byFoodItem = new Map<string, T>()
-
-  for (const item of items) {
-    const existing = byFoodItem.get(item.foodItem)
-    if (!existing || shouldReplace(existing, item)) {
-      byFoodItem.set(item.foodItem, item)
-    }
-  }
-
-  return [...byFoodItem.values()]
-}
-
-function compareUsageRecency(
-  a: { lastLoggedDate: string; id: string },
-  b: { lastLoggedDate: string; id: string },
-) {
-  const dateCmp = b.lastLoggedDate.localeCompare(a.lastLoggedDate)
-  if (dateCmp !== 0) return dateCmp
-  return b.id.localeCompare(a.id)
 }
 
 export const useFoodStore = defineStore('food', () => {
@@ -255,23 +162,15 @@ export const useFoodStore = defineStore('food', () => {
 
   async function checkVisionStatus() {
     try {
-      const res = await pb.send<{ configured: boolean }>('/api/food/label/status', {
-        method: 'GET',
-      })
-      visionConfigured.value = res.configured
+      visionConfigured.value = await checkVisionConfiguration()
     } catch {
       visionConfigured.value = false
     }
   }
 
   async function parseNutritionLabel(imageFile: File): Promise<OFFSearchResult | null> {
-    const formData = new FormData()
-    formData.append('image', imageFile)
     try {
-      return await pb.send<OFFSearchResult>('/api/food/label', {
-        method: 'POST',
-        body: formData,
-      })
+      return await parseNutritionLabelImage(imageFile)
     } catch {
       return null
     }
@@ -283,43 +182,19 @@ export const useFoodStore = defineStore('food', () => {
 
     isLoading.value = true
     try {
-      const userFilter = pb.filter('user = {:userId}', { userId })
-      const dateBoundFilter = pb.filter('user = {:userId} && date >= {:cutoff}', {
-        userId,
-        cutoff: cutoffISO(365),
-      })
-
-      const [itemRecords, logRecords, favoriteRecords, recentRecords, frequentRecords] =
-        await Promise.all([
-          pb
-            .collection<FoodItemRecord>(COLLECTIONS.FOOD_ITEMS)
-            .getFullList({ filter: userFilter, sort: 'name' }),
-          pb
-            .collection<FoodLogRecord>(COLLECTIONS.FOOD_LOG)
-            .getFullList({ filter: dateBoundFilter, sort: 'date' }),
-          pb
-            .collection<FoodFavoriteRecord>(COLLECTIONS.FOOD_FAVORITES)
-            .getFullList({ filter: userFilter }),
-          pb
-            .collection<FoodRecentRecord>(COLLECTIONS.FOOD_RECENTS)
-            .getFullList({ filter: userFilter, sort: '-last_logged_at' }),
-          pb
-            .collection<FoodFrequentRecord>(COLLECTIONS.FOOD_FREQUENT)
-            .getFullList({ filter: userFilter, sort: '-times_logged,-last_logged_at' }),
-        ])
-
-      foodItems.value = itemRecords.map(toFoodItem)
-      foodLog.value = logRecords.map(toFoodLogEntry)
+      const data = await loadFoodDashboardRepositoryData(userId)
+      foodItems.value = data.foodItems
+      foodLog.value = data.foodLog
       favorites.value = dedupeByFoodItem(
-        favoriteRecords.map(toFoodFavorite),
+        data.favorites,
         (current, next) => (next.created ?? '').localeCompare(current.created ?? '') > 0,
       )
       recents.value = dedupeByFoodItem(
-        recentRecords.map(toFoodRecent),
+        data.recents,
         (current, next) => (next.lastLoggedAt ?? '').localeCompare(current.lastLoggedAt ?? '') > 0,
       )
       frequent.value = dedupeByFoodItem(
-        frequentRecords.map(toFoodFrequent),
+        data.frequent,
         (current, next) =>
           next.timesLogged > current.timesLogged ||
           (next.timesLogged === current.timesLogged &&
@@ -345,10 +220,7 @@ export const useFoodStore = defineStore('food', () => {
 
     isSearching.value = true
     try {
-      const results = await pb.send<OFFSearchResult[]>('/api/food/search', {
-        method: 'GET',
-        query: { q: query },
-      })
+      const results = await searchFoodDatabase(query)
       searchResults.value = results
       return results
     } catch {
@@ -362,9 +234,7 @@ export const useFoodStore = defineStore('food', () => {
   async function lookupBarcode(code: string): Promise<OFFSearchResult | null> {
     isLookingUpBarcode.value = true
     try {
-      return await pb.send<OFFSearchResult>(`/api/food/barcode/${encodeURIComponent(code)}`, {
-        method: 'GET',
-      })
+      return await lookupFoodBarcode(code)
     } catch {
       return null
     } finally {
@@ -381,21 +251,7 @@ export const useFoodStore = defineStore('food', () => {
       if (existingBarcodeMatch) return existingBarcodeMatch
     }
 
-    const rec = await pb.collection<FoodItemRecord>(COLLECTIONS.FOOD_ITEMS).create({
-      user: userId,
-      name: item.name,
-      brand: item.brand ?? '',
-      barcode: item.barcode ?? '',
-      calories_per_100g: item.caloriesPer100g,
-      protein_per_100g: item.proteinPer100g ?? 0,
-      carbs_per_100g: item.carbsPer100g ?? 0,
-      fat_per_100g: item.fatPer100g ?? 0,
-      default_serving_g: item.defaultServingG || 100,
-      source: item.source,
-      off_id: item.offId ?? '',
-    })
-
-    const foodItem = toFoodItem(rec)
+    const foodItem = await createFoodItemRecord(userId, item)
     if (!foodItems.value.some((f) => f.id === foodItem.id)) {
       foodItems.value.push(foodItem)
       foodItems.value.sort((a, b) => a.name.localeCompare(b.name))
@@ -690,113 +546,93 @@ export const useFoodStore = defineStore('food', () => {
     const userId = currentUserId()
     if (!userId) return
 
-    const filter = pb.filter('user = {:userId}', { userId })
-
-    void pb.collection<FoodItemRecord>(COLLECTIONS.FOOD_ITEMS).subscribe(
-      '*',
-      (e) => {
-        if (e.action === 'create') {
-          if (!foodItems.value.some((x) => x.id === e.record.id)) {
-            foodItems.value.push(toFoodItem(e.record))
+    subscribeFoodRealtime(userId, {
+      onFoodItem(action, item) {
+        if (action === 'create') {
+          if (!foodItems.value.some((existing) => existing.id === item.id)) {
+            foodItems.value.push(item)
             foodItems.value.sort((a, b) => a.name.localeCompare(b.name))
           }
-        } else if (e.action === 'update') {
-          const idx = foodItems.value.findIndex((x) => x.id === e.record.id)
-          if (idx !== -1) foodItems.value[idx] = toFoodItem(e.record)
-        } else if (e.action === 'delete') {
-          foodItems.value = foodItems.value.filter((x) => x.id !== e.record.id)
+        } else if (action === 'update') {
+          const idx = foodItems.value.findIndex((existing) => existing.id === item.id)
+          if (idx !== -1) foodItems.value[idx] = item
+        } else if (action === 'delete') {
+          foodItems.value = foodItems.value.filter((existing) => existing.id !== item.id)
           cleanupDetachedCollections()
         }
       },
-      { filter },
-    )
-
-    void pb.collection<FoodLogRecord>(COLLECTIONS.FOOD_LOG).subscribe(
-      '*',
-      (e) => {
-        if (e.action === 'create') {
-          if (!foodLog.value.some((x) => x.id === e.record.id)) {
-            foodLog.value.push(toFoodLogEntry(e.record))
+      onFoodLog(action, entry) {
+        if (action === 'create') {
+          if (!foodLog.value.some((existing) => existing.id === entry.id)) {
+            foodLog.value.push(entry)
           }
-        } else if (e.action === 'update') {
-          const idx = foodLog.value.findIndex((x) => x.id === e.record.id)
-          if (idx !== -1) foodLog.value[idx] = toFoodLogEntry(e.record)
-        } else if (e.action === 'delete') {
-          foodLog.value = foodLog.value.filter((x) => x.id !== e.record.id)
+        } else if (action === 'update') {
+          const idx = foodLog.value.findIndex((existing) => existing.id === entry.id)
+          if (idx !== -1) foodLog.value[idx] = entry
+        } else if (action === 'delete') {
+          foodLog.value = foodLog.value.filter((existing) => existing.id !== entry.id)
         }
       },
-      { filter },
-    )
-
-    void pb.collection<FoodFavoriteRecord>(COLLECTIONS.FOOD_FAVORITES).subscribe(
-      '*',
-      (e) => {
-        if (e.action === 'create') {
+      onFavorite(action, favorite) {
+        if (action === 'create') {
           favorites.value = dedupeByFoodItem(
-            [toFoodFavorite(e.record), ...favorites.value],
+            [favorite, ...favorites.value],
             (current, next) => (next.created ?? '').localeCompare(current.created ?? '') > 0,
           )
-        } else if (e.action === 'update') {
+        } else if (action === 'update') {
           favorites.value = dedupeByFoodItem(
             [
-              toFoodFavorite(e.record),
+              favorite,
               ...favorites.value.filter(
-                (x) => x.id !== e.record.id && x.foodItem !== e.record.food_item,
+                (existing) =>
+                  existing.id !== favorite.id && existing.foodItem !== favorite.foodItem,
               ),
             ],
             (current, next) => (next.created ?? '').localeCompare(current.created ?? '') > 0,
           )
-        } else if (e.action === 'delete') {
-          favorites.value = favorites.value.filter((x) => x.id !== e.record.id)
+        } else if (action === 'delete') {
+          favorites.value = favorites.value.filter((existing) => existing.id !== favorite.id)
         }
       },
-      { filter },
-    )
-
-    void pb.collection<FoodRecentRecord>(COLLECTIONS.FOOD_RECENTS).subscribe(
-      '*',
-      (e) => {
-        if (e.action === 'create') {
+      onRecent(action, recentEntry) {
+        if (action === 'create') {
           recents.value = dedupeByFoodItem(
-            [toFoodRecent(e.record), ...recents.value],
+            [recentEntry, ...recents.value],
             (current, next) =>
               (next.lastLoggedAt ?? '').localeCompare(current.lastLoggedAt ?? '') > 0,
           )
-        } else if (e.action === 'update') {
+        } else if (action === 'update') {
           recents.value = dedupeByFoodItem(
             [
-              toFoodRecent(e.record),
+              recentEntry,
               ...recents.value.filter(
-                (x) => x.id !== e.record.id && x.foodItem !== e.record.food_item,
+                (existing) =>
+                  existing.id !== recentEntry.id && existing.foodItem !== recentEntry.foodItem,
               ),
             ],
             (current, next) =>
               (next.lastLoggedAt ?? '').localeCompare(current.lastLoggedAt ?? '') > 0,
           )
-        } else if (e.action === 'delete') {
-          recents.value = recents.value.filter((x) => x.id !== e.record.id)
+        } else if (action === 'delete') {
+          recents.value = recents.value.filter((existing) => existing.id !== recentEntry.id)
         }
       },
-      { filter },
-    )
-
-    void pb.collection<FoodFrequentRecord>(COLLECTIONS.FOOD_FREQUENT).subscribe(
-      '*',
-      (e) => {
-        if (e.action === 'create') {
+      onFrequent(action, frequentEntry) {
+        if (action === 'create') {
           frequent.value = dedupeByFoodItem(
-            [toFoodFrequent(e.record), ...frequent.value],
+            [frequentEntry, ...frequent.value],
             (current, next) =>
               next.timesLogged > current.timesLogged ||
               (next.timesLogged === current.timesLogged &&
                 (next.lastLoggedAt ?? '').localeCompare(current.lastLoggedAt ?? '') > 0),
           )
-        } else if (e.action === 'update') {
+        } else if (action === 'update') {
           frequent.value = dedupeByFoodItem(
             [
-              toFoodFrequent(e.record),
+              frequentEntry,
               ...frequent.value.filter(
-                (x) => x.id !== e.record.id && x.foodItem !== e.record.food_item,
+                (existing) =>
+                  existing.id !== frequentEntry.id && existing.foodItem !== frequentEntry.foodItem,
               ),
             ],
             (current, next) =>
@@ -804,124 +640,54 @@ export const useFoodStore = defineStore('food', () => {
               (next.timesLogged === current.timesLogged &&
                 (next.lastLoggedAt ?? '').localeCompare(current.lastLoggedAt ?? '') > 0),
           )
-        } else if (e.action === 'delete') {
-          frequent.value = frequent.value.filter((x) => x.id !== e.record.id)
+        } else if (action === 'delete') {
+          frequent.value = frequent.value.filter((existing) => existing.id !== frequentEntry.id)
         }
       },
-      { filter },
-    )
+    })
   }
 
   function unsubscribeRealtime() {
-    void pb.collection(COLLECTIONS.FOOD_ITEMS).unsubscribe('*')
-    void pb.collection(COLLECTIONS.FOOD_LOG).unsubscribe('*')
-    void pb.collection(COLLECTIONS.FOOD_FAVORITES).unsubscribe('*')
-    void pb.collection(COLLECTIONS.FOOD_RECENTS).unsubscribe('*')
-    void pb.collection(COLLECTIONS.FOOD_FREQUENT).unsubscribe('*')
+    unsubscribeFoodRealtime()
   }
 
   function cleanupDetachedCollections() {
-    const validIds = new Set(foodItems.value.map((item) => item.id))
-    favorites.value = favorites.value.filter((item) => validIds.has(item.foodItem))
-    recents.value = recents.value.filter((item) => validIds.has(item.foodItem))
-    frequent.value = frequent.value.filter((item) => validIds.has(item.foodItem))
+    favorites.value = cleanupDetachedFoodCollections(foodItems.value, favorites.value)
+    recents.value = cleanupDetachedFoodCollections(foodItems.value, recents.value)
+    frequent.value = cleanupDetachedFoodCollections(foodItems.value, frequent.value)
   }
 
-  const dailyFoodSummaries = computed((): Map<string, DailyFoodSummary> => {
-    const map = new Map<string, DailyFoodSummary>()
-
-    for (const entry of foodLog.value) {
-      let summary = map.get(entry.date)
-      if (!summary) {
-        summary = {
-          meals: { breakfast: [], lunch: [], dinner: [], snack: [] },
-          totalCalories: 0,
-          totalProtein: 0,
-          totalCarbs: 0,
-          totalFat: 0,
-        }
-        map.set(entry.date, summary)
-      }
-
-      summary.meals[entry.mealType].push(entry)
-      summary.totalCalories = round1(summary.totalCalories + entry.calories)
-      summary.totalProtein = round1(summary.totalProtein + (entry.protein ?? 0))
-      summary.totalCarbs = round1(summary.totalCarbs + (entry.carbs ?? 0))
-      summary.totalFat = round1(summary.totalFat + (entry.fat ?? 0))
-    }
-
-    return map
-  })
+  const dailyFoodSummaries = computed(
+    (): Map<string, DailyFoodSummary> => buildDailyFoodSummaries(foodLog.value),
+  )
 
   const todayFoodSummary = computed((): DailyFoodSummary | null => {
     return dailyFoodSummaries.value.get(today.value) ?? null
   })
 
-  const favoriteFoods = computed((): FoodItem[] => {
-    return [...favorites.value]
-      .sort((a, b) => {
-        const createdCmp = (b.created ?? '').localeCompare(a.created ?? '')
-        if (createdCmp !== 0) return createdCmp
-        return compareFoodNames(resolveFoodItem(a.foodItem), resolveFoodItem(b.foodItem))
-      })
-      .map((item) => resolveFoodItem(item.foodItem))
-      .filter((item): item is FoodItem => item != null)
-  })
+  const favoriteFoods = computed(() => buildFavoriteFoods(favorites.value, resolveFoodItem))
 
-  const recentFoodsPersisted = computed((): FoodItem[] => {
-    return [...recents.value]
-      .sort((a, b) => {
-        const recencyCmp = (b.lastLoggedAt ?? '').localeCompare(a.lastLoggedAt ?? '')
-        if (recencyCmp !== 0) return recencyCmp
-        return compareFoodNames(resolveFoodItem(a.foodItem), resolveFoodItem(b.foodItem))
-      })
-      .map((item) => resolveFoodItem(item.foodItem))
-      .filter((item): item is FoodItem => item != null)
-  })
+  const recentFoodsPersisted = computed(() => buildRecentFoods(recents.value, resolveFoodItem))
 
-  const frequentFoodsPersisted = computed((): FoodItem[] => {
-    return [...frequent.value]
-      .sort((a, b) => {
-        if (b.timesLogged !== a.timesLogged) return b.timesLogged - a.timesLogged
-        const recencyCmp = (b.lastLoggedAt ?? '').localeCompare(a.lastLoggedAt ?? '')
-        if (recencyCmp !== 0) return recencyCmp
-        return compareFoodNames(resolveFoodItem(a.foodItem), resolveFoodItem(b.foodItem))
-      })
-      .map((item) => resolveFoodItem(item.foodItem))
-      .filter((item): item is FoodItem => item != null)
-  })
+  const frequentFoodsPersisted = computed(() => buildFrequentFoods(frequent.value, resolveFoodItem))
 
   function foodsForDashboardTab(tab: FoodDashboardTab): FoodItem[] {
-    if (tab === 'favorites') return favoriteFoods.value
-    if (tab === 'recent') return recentFoodsPersisted.value
-    return frequentFoodsPersisted.value
+    return getFoodsForDashboardTab(
+      tab,
+      favoriteFoods.value,
+      recentFoodsPersisted.value,
+      frequentFoodsPersisted.value,
+    )
   }
 
-  const combinedSearchState = computed(() => {
-    const query = dashboardQuery.value.trim().toLowerCase()
-    const personalMatches = query
-      ? foodItems.value
-          .filter(
-            (food) =>
-              food.name.toLowerCase().includes(query) ||
-              food.brand?.toLowerCase().includes(query) ||
-              food.barcode?.toLowerCase().includes(query),
-          )
-          .slice(0, 8)
-      : []
-
-    return {
-      query: dashboardQuery.value.trim(),
-      personalMatches,
-      remoteResults: searchResults.value,
-      hasQuery: dashboardQuery.value.trim().length > 0,
-      showEmptyState:
-        dashboardQuery.value.trim().length > 0 &&
-        !isSearching.value &&
-        personalMatches.length === 0 &&
-        searchResults.value.length === 0,
-    }
-  })
+  const combinedSearchState = computed(() =>
+    buildCombinedSearchState({
+      dashboardQuery: dashboardQuery.value,
+      foodItems: foodItems.value,
+      searchResults: searchResults.value,
+      isSearching: isSearching.value,
+    }),
+  )
 
   const recentFoods = computed(() => recentFoodsPersisted.value)
   const frequentFoods = computed(() => frequentFoodsPersisted.value)
