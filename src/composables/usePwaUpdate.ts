@@ -1,19 +1,70 @@
+import { getCurrentScope, onScopeDispose } from 'vue'
 import { useRegisterSW } from 'virtual:pwa-register/vue'
 
-const intervalMS = 60 * 60 * 1000 // 1 hour
+const initialCheckDelayMS = 5 * 1000
+const updateIntervalMS = 5 * 60 * 1000
+
+function canCheckForUpdates(registration: ServiceWorkerRegistration) {
+  if (registration.installing) return false
+  if (typeof navigator === 'undefined') return false
+  if ('onLine' in navigator && !navigator.onLine) return false
+
+  return true
+}
+
+async function checkForUpdates(registration: ServiceWorkerRegistration) {
+  if (!canCheckForUpdates(registration)) return
+
+  await registration.update()
+}
+
+export function setupPwaUpdateChecks(registration: ServiceWorkerRegistration) {
+  const runUpdateCheck = () => {
+    void checkForUpdates(registration)
+  }
+
+  const timeoutId = window.setTimeout(runUpdateCheck, initialCheckDelayMS)
+  const intervalId = window.setInterval(runUpdateCheck, updateIntervalMS)
+
+  const handleFocus = () => {
+    runUpdateCheck()
+  }
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState !== 'visible') return
+
+    runUpdateCheck()
+  }
+
+  window.addEventListener('focus', handleFocus)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+
+  return () => {
+    window.clearTimeout(timeoutId)
+    window.clearInterval(intervalId)
+    window.removeEventListener('focus', handleFocus)
+    document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }
+}
 
 export function usePwaUpdate() {
+  let cleanupUpdateChecks: (() => void) | undefined
+
   const { needRefresh, offlineReady, updateServiceWorker } = useRegisterSW({
     onRegisteredSW(_swUrl, registration) {
-      if (!registration) return
-      setInterval(async () => {
-        if (!(!registration.installing && navigator)) return
-        if ('connection' in navigator && !navigator.onLine) return
+      cleanupUpdateChecks?.()
 
-        await registration.update()
-      }, intervalMS)
+      if (!registration) return
+
+      cleanupUpdateChecks = setupPwaUpdateChecks(registration)
     },
   })
+
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      cleanupUpdateChecks?.()
+    })
+  }
 
   function close() {
     offlineReady.value = false
@@ -23,7 +74,7 @@ export function usePwaUpdate() {
   return {
     needRefresh,
     offlineReady,
-    updateServiceWorker,
+    updateServiceWorker: () => updateServiceWorker(true),
     close,
   }
 }
