@@ -4,14 +4,12 @@ import { toast } from 'vue-sonner'
 import type {
   CalorieEntry,
   DailyCalorieRow,
-  GoalDirection,
   KcalGoalChange,
-  Sex,
   TimeRange,
   UserSettings,
   WeightEntry,
 } from '@/types'
-import { pb, COLLECTIONS, pocketbaseUrl } from '@/lib/pocketbase'
+import { pb, COLLECTIONS } from '@/lib/pocketbase'
 import type {
   WeightEntryRecord,
   CalorieEntryRecord,
@@ -22,26 +20,15 @@ import type {
 import { todayISO } from '@/lib/date'
 import { today } from '@/composables/useToday'
 import { getBmiCategory } from '@/composables/useBmi'
+import type { CsvDataType, CsvImportError, CsvImportResult } from '@/lib/weight/csv'
+import { exportCsvData, importCsvData } from '@/lib/weight/csv'
+import { createDefaultUserSettings, saveUserSettings, toUserSettings } from '@/lib/weight/settings'
 import { useGroupsStore } from '@/stores/groups'
 import { useFoodStore } from '@/stores/food'
 
 type AverageMode = 'daily' | 'weekly' | 'monthly'
-export type CsvDataType = 'weight' | 'calories' | 'food_log'
 type CustomDateRange = { start: string; end: string }
-
-export interface CsvImportError {
-  row: number
-  message: string
-}
-
-export interface CsvImportResult {
-  type: CsvDataType
-  totalRows: number
-  created: number
-  updated: number
-  skipped: number
-  errors: CsvImportError[]
-}
+export type { CsvDataType, CsvImportError, CsvImportResult } from '@/lib/weight/csv'
 
 // ── Record → domain type mappers ──
 
@@ -71,30 +58,6 @@ function toKcalGoalChange(r: KcalGoalChangeRecord): KcalGoalChange {
     id: r.id,
     effectiveFrom: r.effective_from,
     kcal: r.kcal,
-  }
-}
-
-function toUserSettings(r: UserSettingsRecord): UserSettings {
-  let dashboardLayout: { id: string; visible: boolean }[] | undefined
-  if (r.dashboard_layout) {
-    try {
-      dashboardLayout =
-        typeof r.dashboard_layout === 'string' ? JSON.parse(r.dashboard_layout) : r.dashboard_layout
-    } catch {
-      dashboardLayout = undefined
-    }
-  }
-  return {
-    unit: r.unit,
-    goalWeightKg: r.goal_weight_kg,
-    heightCm: r.height_cm,
-    dateOfBirth: r.date_of_birth || undefined,
-    sex: (r.sex as Sex) || undefined,
-    goalDirection: (r.goal_direction as GoalDirection) || undefined,
-    proteinGoalG: r.protein_goal_g || undefined,
-    carbsGoalG: r.carbs_goal_g || undefined,
-    fatGoalG: r.fat_goal_g || undefined,
-    dashboardLayout,
   }
 }
 
@@ -139,17 +102,7 @@ export const useWeightStore = defineStore('weight', () => {
   // ── Weight state ──
 
   const entries = ref<WeightEntry[]>([])
-  const settings = ref<UserSettings>({
-    unit: 'kg',
-    goalWeightKg: 75,
-    heightCm: 178,
-    dateOfBirth: undefined,
-    sex: undefined,
-    proteinGoalG: undefined,
-    carbsGoalG: undefined,
-    fatGoalG: undefined,
-    dashboardLayout: undefined,
-  })
+  const settings = ref<UserSettings>(createDefaultUserSettings())
   // PocketBase record ID for settings (needed for update calls)
   const settingsRecordId = ref<string | null>(null)
 
@@ -294,17 +247,7 @@ export const useWeightStore = defineStore('weight', () => {
     entries.value = []
     calorieEntries.value = []
     kcalGoalHistory.value = []
-    settings.value = {
-      unit: 'kg',
-      goalWeightKg: 75,
-      heightCm: 178,
-      dateOfBirth: undefined,
-      sex: undefined,
-      proteinGoalG: undefined,
-      carbsGoalG: undefined,
-      fatGoalG: undefined,
-      dashboardLayout: undefined,
-    }
+    settings.value = createDefaultUserSettings()
     settingsRecordId.value = null
     weightTimeRange.value = 90
     calorieTimeRange.value = 30
@@ -322,41 +265,7 @@ export const useWeightStore = defineStore('weight', () => {
 
     const next = { ...settings.value, ...patch }
     settings.value = next
-
-    const payload = {
-      user: userId,
-      unit: next.unit,
-      goal_weight_kg: next.goalWeightKg,
-      height_cm: next.heightCm,
-      date_of_birth: next.dateOfBirth ?? '',
-      sex: next.sex ?? '',
-      goal_direction: next.goalDirection ?? '',
-      protein_goal_g: next.proteinGoalG ?? null,
-      carbs_goal_g: next.carbsGoalG ?? null,
-      fat_goal_g: next.fatGoalG ?? null,
-      dashboard_layout: JSON.stringify(next.dashboardLayout ?? []),
-    }
-
-    let recordId = settingsRecordId.value
-
-    if (!recordId) {
-      const existingSettings = await pb
-        .collection<UserSettingsRecord>(COLLECTIONS.USER_SETTINGS)
-        .getFullList({
-          filter: pb.filter('user = {:userId}', { userId }),
-          sort: '-created',
-          limit: 1,
-        })
-      recordId = existingSettings[0]?.id ?? null
-    }
-
-    if (recordId) {
-      await pb.collection(COLLECTIONS.USER_SETTINGS).update(recordId, payload)
-      settingsRecordId.value = recordId
-    } else {
-      const rec = await pb.collection<UserSettingsRecord>(COLLECTIONS.USER_SETTINGS).create(payload)
-      settingsRecordId.value = rec.id
-    }
+    settingsRecordId.value = await saveUserSettings(userId, next, settingsRecordId.value)
 
     // Sync weight goal for groups when goal weight changes
     const sorted = [...entries.value].sort((a, b) => a.date.localeCompare(b.date))
@@ -855,42 +764,13 @@ export const useWeightStore = defineStore('weight', () => {
   }
 
   async function importCsv(type: CsvDataType, file: File): Promise<CsvImportResult> {
-    const formData = new FormData()
-    formData.append('type', type)
-    formData.append('file', file)
-
-    const result = await pb.send<CsvImportResult>('/api/data/import/csv', {
-      method: 'POST',
-      body: formData,
-    })
-
+    const result = await importCsvData(type, file)
     await Promise.all([loadAll(), useFoodStore().loadFoodData()])
     return result
   }
 
   async function exportCsv(type: CsvDataType): Promise<{ filename: string; blob: Blob }> {
-    const url = new URL('/api/data/export/csv', pocketbaseUrl)
-    url.searchParams.set('type', type)
-
-    const headers: HeadersInit = {}
-    if (pb.authStore.token) {
-      headers.Authorization = `Bearer ${pb.authStore.token}`
-    }
-
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers,
-    })
-
-    if (!response.ok) {
-      throw new Error('Export failed')
-    }
-
-    const blob = await response.blob()
-    const disposition = response.headers.get('content-disposition')
-    const filename = extractFilenameFromDisposition(disposition) ?? `${type}.csv`
-
-    return { filename, blob }
+    return exportCsvData(type)
   }
 
   return {
@@ -952,19 +832,3 @@ export const useWeightStore = defineStore('weight', () => {
     reset,
   }
 })
-
-function extractFilenameFromDisposition(disposition: string | null): string | null {
-  if (!disposition) return null
-
-  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i)
-  if (utf8Match?.[1]) {
-    return decodeURIComponent(utf8Match[1])
-  }
-
-  const simpleMatch = disposition.match(/filename="?([^";]+)"?/i)
-  if (simpleMatch?.[1]) {
-    return simpleMatch[1]
-  }
-
-  return null
-}
